@@ -325,17 +325,40 @@ $ curl "http://127.0.0.1:5000/log?limit=2"
 
 ## How I Used AI
 
-**Moment 1**
+**Moment 1: the acceptance criteria and the label text**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Write `criteria.md` in full (five numbered criteria, each
+  with a number and a reason) and, in Milestone 5, the exact text of all three
+  labels.
+- *What came back:* Five criteria covering false positives (at most 1 of 10 of
+  my own pieces called AI), score spread (≥ 0.25), label coverage, the appeal
+  path and bad input, each required to hold in all three unit-8 trials. Then
+  three labels, with an "unsure" one that says "This is not an accusation". It
+  also wrote the message a falsely-flagged second-language writer would send
+  about the 1-in-10 rate, which the brief suggests as a check.
+- *What I changed:* I kept the criteria as drafted. I read the "letter" and
+  decided 1 in 10 still stands, because 0 in 10 is only reachable by never
+  saying "AI", and the appeal path plus the both-signals rule are what make it
+  bearable. Because I didn't write them, I've checked I can defend each number
+  myself before unit 8 tests them.
 
-**Moment 2**
+**Moment 2: calibrating the style signal**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Build the three stylometry measures, run both signals
+  over my five calibration texts (clearly AI, borderline, lightly-edited AI,
+  and two paragraphs I wrote), and find a case where the signals split.
+- *What came back:* A table showing sentence-length spread separated the texts
+  well, but type-token ratio didn't separate them at all: the borderline and
+  edited-AI texts had the *most* varied vocabulary. My texts had no real split,
+  so it wrote two probes. Chopping up the AI paragraph produced a 0.38 split.
+  A plain, second-language-style paragraph scored 0.92, confidently AI, with
+  both signals agreeing.
+- *What I changed:* TTR got the smallest weight (0.2) instead of an equal
+  third. The AI threshold went from 0.65 to 0.70 once I saw the lightly-edited
+  AI text would be called AI at 0.66, a margin I wouldn't want deciding
+  against a real writer. I chose **not** to tune away the 0.92 false positive.
+  It's written up in Signals and Scoring as the first thing criterion 1 should
+  catch in unit 8, because hiding it before the test would defeat the test.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
@@ -465,16 +488,16 @@ that produced it:
 
      SUBMISSION CHECKLIST — unit 7
 
-       [ ] criteria.md has five numbered criteria, each naming a target
-       [ ] Each has a reason underneath
-       [ ] POST /submit returns content_id, guess, confidence, label,
+       [x] criteria.md has five numbered criteria, each naming a target
+       [x] Each has a reason underneath
+       [x] POST /submit returns content_id, guess, confidence, label,
            model_score and style_score
-       [ ] Two signals that measure DIFFERENT things, each with a named blind spot
-       [ ] Three label variants, all reachable, written out in full
-       [ ] POST /appeal changes status and writes to the log
-       [ ] Signals and Scoring names scoring.py::combine_signals
-       [ ] Sample Run: a submission AND an appeal, as pasted text
-       [ ] At least four new commits
+       [x] Two signals that measure DIFFERENT things, each with a named blind spot
+       [x] Three label variants, all reachable, written out in full
+       [x] POST /appeal changes status and writes to the log
+       [x] Signals and Scoring names scoring.py::combine_signals
+       [x] Sample Run: a submission AND an appeal, as pasted text
+       [x] At least four new commits
        [ ] Repository URL submitted — WRITE IT DOWN
 
      SUBMISSION CHECKLIST — unit 8
