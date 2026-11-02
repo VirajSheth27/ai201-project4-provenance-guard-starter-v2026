@@ -31,6 +31,8 @@ from flask import Flask, jsonify, request
 import audit
 import config
 import detector
+import scoring
+import stylometry
 
 app = Flask(__name__)
 
@@ -233,8 +235,10 @@ def submit():
         # The tokenizer can still find too few tokens in odd input.
         return _reject(creator_id, 422, "too_short", str(exc))
 
-    # Milestone 3: one signal. Style, confidence and label are placeholders
-    # until Milestones 4 and 5.
+    style_score = stylometry.style_signal(text)
+    confidence = scoring.combine_signals(model_score, style_score)
+
+    # The label is a placeholder until Milestone 5.
     guess = "pending"
     label = "pending"
 
@@ -243,8 +247,8 @@ def submit():
         creator_id=creator_id,
         guess=guess,
         model_score=model_score,
-        style_score=None,
-        combined_score=None,
+        style_score=style_score,
+        combined_score=confidence,
         label=label,
         status="decided",
     )
@@ -253,10 +257,10 @@ def submit():
         "content_id": content_id,
         "creator_id": creator_id,
         "guess": guess,
-        "confidence": None,
+        "confidence": confidence,
         "label": label,
         "model_score": model_score,
-        "style_score": None,
+        "style_score": style_score,
         "status": "decided",
     })
 

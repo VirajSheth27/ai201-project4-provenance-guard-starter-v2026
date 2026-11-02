@@ -60,12 +60,17 @@ MAX_TEXT_CHARS = 20_000
 # ─── Scoring (Milestone 4) ───────────────────────────────────────────────────
 # How much each signal counts toward the combined score.
 #
-# ⚠️ These are placeholders. Milestone 4 asks you to write your combining rule
-# down BEFORE you code it, and to put the numbers in your README. Whatever you
-# decide, it goes here.
+# The rule (scoring.py::combine_signals, and README → Signals and Scoring):
+# an equal-weight average, except that when the two signals disagree by more
+# than DISAGREEMENT_GAP the score is held just below AI_THRESHOLD. Disagreement
+# can make a text "unsure", never "AI". It takes both signals to accuse.
+#
+# Equal weights because each signal's blind spot is the other's strength: the
+# model signal misreads plain writers, the style signal is cheap to game.
 
 WEIGHT_MODEL_SIGNAL = 0.5
 WEIGHT_STYLE_SIGNAL = 0.5
+DISAGREEMENT_GAP = 0.35
 
 
 # ─── Thresholds (Milestone 5) ────────────────────────────────────────────────

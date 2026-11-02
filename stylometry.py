@@ -47,62 +47,118 @@ def words(text: str) -> list[str]:
 
 # ── The three measures — YOU BUILD THESE ─────────────────────────────────────
 
-def sentence_length_spread(text: str) -> float:
+def sentence_length_spread(text: str) -> float | None:
     """
-    How much sentence length varies. ← TODO
+    How much sentence length varies.
 
     Returns:
-        A float. Decide yourself what scale it's on and which direction means
-        "more human" — then write that down, because your combining rule
-        depends on knowing it.
+        The coefficient of variation of words per sentence: stdev / mean.
+        0.0 means every sentence is the same length; around 0.5+ is lumpy.
+        **Higher means more human.**
 
-    A hint on what you're reaching for: the standard deviation of sentence
-    lengths, probably divided by the mean so a long text and a short one are
-    comparable. `statistics.stdev` is imported for you.
-
-    Watch the edge case: a one-sentence submission has no spread at all, and
-    `stdev` raises on fewer than two values. Decide what that should return
-    before the attack set decides for you.
+        None when there are fewer than two sentences. One sentence has no
+        spread, and calling that "perfectly uniform" would score every
+        one-sentence submission as maximally AI. None means "no evidence",
+        and `style_signal` leaves it out.
     """
-    # TODO: replace this
-    return 0.0
+    lengths = [len(words(s)) for s in sentences(text)]
+    lengths = [n for n in lengths if n > 0]
+    if len(lengths) < 2:
+        return None
+    mean = statistics.mean(lengths)
+    return statistics.stdev(lengths) / mean
+
+
+# Window for the moving-average type-token ratio. 50 words is short enough to
+# work on a paragraph and long enough that "the" repeating isn't the whole story.
+TTR_WINDOW = 50
 
 
 def type_token_ratio(text: str) -> float:
     """
-    Unique words over total words. ← TODO
+    Unique words over total words, averaged over a sliding window.
 
     Returns:
-        A float between 0 and 1. Higher means more varied vocabulary.
+        A float between 0 and 1. **Higher means more varied vocabulary.**
 
-    Worth knowing before you rely on it: this measure falls as text gets
-    longer, because common words repeat. Two texts of different lengths aren't
-    directly comparable on it, and if your test inputs vary a lot in length,
-    that alone can look like a signal.
+    Plain TTR falls as text gets longer, so a long human essay would look
+    "less varied" than a short AI paragraph for no reason but length. The
+    moving-average version (MATTR) scores every 50-word window and averages
+    them, which keeps texts of different lengths comparable. Under 50 words
+    it falls back to plain TTR.
     """
-    # TODO: replace this
-    return 0.0
+    tokens = words(text)
+    if not tokens:
+        return 0.0
+    if len(tokens) <= TTR_WINDOW:
+        return len(set(tokens)) / len(tokens)
+    ratios = [
+        len(set(tokens[i:i + TTR_WINDOW])) / TTR_WINDOW
+        for i in range(len(tokens) - TTR_WINDOW + 1)
+    ]
+    return statistics.mean(ratios)
+
+
+# The marks counted. Full stops are left out: every writer uses them at about
+# the rate they end sentences, so they say nothing. These are the ones that
+# vary between writers: asides, questions, quotes, lists.
+PUNCTUATION_MARKS = ",;:!?()\"“”‘’—–…"
 
 
 def punctuation_density(text: str) -> float:
     """
-    How much punctuation, relative to length. ← TODO
+    How much expressive punctuation, relative to length.
 
     Returns:
-        A float. Whether you count all punctuation or only some kinds — commas,
-        semicolons, dashes — is a real choice. Semicolons and em dashes are
-        more interesting than full stops, because they vary more between
-        writers.
+        Marks from PUNCTUATION_MARKS per word, plus a spaced hyphen (" - ")
+        counted as a dash. 0.0 is bare prose; around 0.15+ is chatty.
+        **Higher means more human.**
+
+    Apostrophes inside words (it's, don't) aren't counted, because they're
+    contractions, not punctuation choices.
     """
-    # TODO: replace this
-    return 0.0
+    tokens = words(text)
+    if not tokens:
+        return 0.0
+    marks = sum(1 for ch in text if ch in PUNCTUATION_MARKS and ch not in "‘’")
+    # A curly apostrophe between letters is a contraction; anywhere else it's a quote.
+    marks += len(re.findall(r"(?<![A-Za-z])[‘’]|[‘’](?![A-Za-z])", text))
+    marks += text.count(" - ")
+    return marks / len(tokens)
 
 
 # ── Combining them ───────────────────────────────────────────────────────────
 
+# How each measure is put on a 0–1 "AI-likeness" scale: (AI end, human end).
+# At or past the AI end a measure scores 1.0, at or past the human end 0.0,
+# linear in between. All three run "higher raw value = more human", so each
+# gets flipped the same way. Anchors were set from the Milestone 4
+# calibration texts (README, Signals and Scoring).
+ANCHORS = {
+    "spread": (0.15, 0.60),   # AI texts sat at 0.21–0.33, human at 0.52–0.54
+    "ttr": (0.70, 0.95),
+    "punct": (0.00, 0.15),    # bare prose vs. chatty asides and questions
+}
+
+# How much each measure counts. Spread separated the calibration texts best;
+# TTR barely separated them at all on paragraph-length text, so it counts least.
+MEASURE_WEIGHTS = {"spread": 0.5, "punct": 0.3, "ttr": 0.2}
+
+
+def _ai_likeness(value: float, ai_end: float, human_end: float) -> float:
+    """Map a raw measure onto 0–1, where 1 is the AI end of its anchors."""
+    scaled = (human_end - value) / (human_end - ai_end)
+    return min(max(scaled, 0.0), 1.0)
+
+
 def style_signal(text: str) -> float:
     """
-    The style signal as a 0–1 score. **Higher means more likely AI.** ← TODO
+    The style signal as a 0–1 score. **Higher means more likely AI.**
+
+    Each measure is mapped onto 0–1 AI-likeness with ANCHORS, then the
+    weighted mean is taken with MEASURE_WEIGHTS. A measure that returns None
+    (spread, on a single sentence) is left out and the remaining weights are
+    renormalised, so no evidence counts as no evidence, not as "AI".
 
     Combine your three measures into one number. Same direction as
     `detector.model_signal`, so that `scoring.combine_signals` can treat them
@@ -122,8 +178,20 @@ def style_signal(text: str) -> float:
     you trust it. Plain and ordinary, not formal: formal prose reads as *human*
     to signal one, and it is plain writing that gets accused.
     """
-    # TODO: replace this
-    return 0.5
+    raw = {
+        "spread": sentence_length_spread(text),
+        "ttr": type_token_ratio(text),
+        "punct": punctuation_density(text),
+    }
+    total, weight = 0.0, 0.0
+    for name, value in raw.items():
+        if value is None:
+            continue
+        total += MEASURE_WEIGHTS[name] * _ai_likeness(value, *ANCHORS[name])
+        weight += MEASURE_WEIGHTS[name]
+    if weight == 0:
+        return 0.5
+    return round(total / weight, 4)
 
 
 if __name__ == "__main__":
@@ -139,4 +207,3 @@ if __name__ == "__main__":
     print(f"type_token_ratio         {type_token_ratio(text)}")
     print(f"punctuation_density      {punctuation_density(text)}")
     print(f"style_signal             {style_signal(text)}   (higher = more likely AI)")
-    print("\nAll zeros? These are stubs — Milestone 4 is where you build them.")

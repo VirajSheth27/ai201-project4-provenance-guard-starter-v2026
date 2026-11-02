@@ -119,9 +119,52 @@ sentence has no spread at all.
 <!-- Write the rule in words, then give the numbers. What happens when the two
      signals disagree? -->
 
-**The rule:**
+**The rule:** Average the two signals with equal weight. Then, if they
+disagree by more than 0.35, cap the result just below the AI threshold.
+Strong disagreement can make a text "unsure" but never "high-confidence AI":
+**it takes both signals to accuse someone.** The cap only works in that
+direction. A disagreement that averages out human stays human, because erring
+that way costs a writer nothing.
+
+Equal weights because each signal's blind spot is covered by the other: the
+model signal misreads plain writers, and the style signal is cheap to game.
 
 **The numbers:**
+
+| Setting | Value | Where |
+|---|---|---|
+| Model signal weight | 0.5 | `config.WEIGHT_MODEL_SIGNAL` |
+| Style signal weight | 0.5 | `config.WEIGHT_STYLE_SIGNAL` |
+| Disagreement gap | 0.35 | `config.DISAGREEMENT_GAP` |
+| Cap when they disagree | `AI_THRESHOLD − 0.01` | `scoring.py::combine_signals` |
+| Detector midpoint | 45 perplexity (unchanged) | `detector.py::model_signal` |
+
+How the style signal is built (`stylometry.py::style_signal`): each measure is
+mapped onto 0–1 AI-likeness between two anchors, then weighted.
+
+| Measure | AI end → human end | Weight |
+|---|---|---|
+| Sentence-length spread (stdev ÷ mean) | 0.15 → 0.60 | 0.5 |
+| Punctuation per word (`, ; : ! ? ( ) " —` …) | 0.00 → 0.15 | 0.3 |
+| Moving-average type-token ratio (50-word window) | 0.70 → 0.95 | 0.2 |
+
+A single sentence has no spread, so that measure is left out rather than
+counted as "perfectly uniform".
+
+**Calibration run** (`python stylometry.py` / `detector.py`, same texts through `/submit`):
+
+| Text | spread | TTR | punct | model | style | combined |
+|---|---|---|---|---|---|---|
+| Clearly AI | 0.22 | 0.85 | 0.06 | 0.757 | 0.692 | **0.725** |
+| Lightly-edited AI | 0.21 | 0.94 | 0.00 | 0.587 | 0.738 | **0.662** |
+| Borderline | 0.33 | 0.94 | 0.05 | 0.534 | 0.519 | **0.527** |
+| My writing (casual) | 0.54 | 0.87 | 0.06 | 0.318 | 0.309 | **0.314** |
+| My writing (plain) | 0.52 | 0.86 | 0.13 | 0.317 | 0.197 | **0.257** |
+
+Clearly AI and clearly human are 0.41 apart. Sentence-length spread did most of
+the separating. **Type-token ratio did not discriminate at all**: the
+borderline and edited-AI texts had the *most* varied vocabulary. That's why it
+carries the least weight, and it's a finding worth testing in unit 8.
 
 **Where it lives:** `scoring.py::combine_signals`
 
@@ -129,6 +172,33 @@ sentence has no spread at all.
      somewhere else, say where. -->
 
 **A case where my two signals split, and what my rule does with it:**
+
+I took the clearly-AI paragraph and changed only its shape: I added a two-word
+sentence ("Huge shift."), turned "Consequently," into "Consequently?", wrapped
+a clause in dashes and another in brackets. Every word of substance is the same.
+
+| | model | style | gap | combined |
+|---|---|---|---|---|
+| Clearly AI, original | 0.757 | 0.692 | 0.07 | 0.725 |
+| Same text, chopped up | 0.561 | 0.178 | **0.38** | 0.369 |
+
+The style signal dropped from 0.69 to 0.18. It can't read, so a few cheap
+edits made it call the text clearly human. The model signal still leaned AI.
+My rule averages them to 0.37, which lands in "unsure", not "human". The
+disagreement cap doesn't fire here because the average is already below the AI
+line. It fires in the opposite case: a strong model score with a weak style
+score, or the reverse, can never add up to an accusation. So the attack
+downgraded a confident AI call to "unsure" rather than clearing it. That is
+the blind spot from Milestone 1 working exactly as predicted.
+
+**A case where they agree, and are both wrong.** As a probe I wrote a
+paragraph in the style of a second-language writer: short, even sentences,
+common words, no punctuation beyond full stops ("I go to the library every day
+after my class. The library is very quiet…"). Model 0.852, style 0.986,
+combined **0.919**. Both signals' blind spots point the same way on this kind
+of writing, so the disagreement rule never fires. This is the false positive
+from Milestone 1, and my combining rule doesn't protect against it. It is the
+first thing criterion 1 will test in unit 8.
 
 
 
