@@ -39,6 +39,32 @@
 <!-- The path a submission takes, from arriving to the label a reader sees.
      Six or seven steps — this is the trace you wrote in Milestone 1. -->
 
+Provenance Guard takes a piece of writing, estimates how likely it is to be
+AI-generated using two independent signals, and tells the writer what it
+thinks in plain language, with a way to appeal. The full trace, the
+false-positive walkthrough and the endpoint contracts are in
+[design.md](design.md).
+
+1. **`POST /submit` receives** `{"text", "creator_id"}`. The route checks the
+   input. Missing, blank, non-string, too-short or too-long text gets a 4xx JSON
+   error and a `rejected` audit entry, and stops here.
+2. **A `content_id`** (uuid4) is minted. It is the handle for everything after,
+   including an appeal.
+3. **Signal one, `detector.model_signal`**: GPT-2, run locally, measures how
+   predictable the text is and returns `model_score` (0–1, higher = more AI-like).
+4. **Signal two, `stylometry.style_signal`**: measures the text's shape (sentence
+   length spread, vocabulary variety, punctuation) and returns `style_score`
+   (0–1, higher = more AI-like).
+5. **`scoring.combine_signals`** turns the two into one `confidence` score (0–1).
+   High-confidence AI requires both signals to agree.
+6. **`scoring.score_to_label`** turns the score into a `guess`
+   (`human`/`unsure`/`ai`) and the sentence the reader sees.
+7. **`audit.log_decision`** appends the decision (all nine fields) to
+   `logs/audit.jsonl`, and the route returns the same facts as JSON.
+
+If the writer disagrees, **`POST /appeal`** with the `content_id` and their
+reasoning checks the id exists, appends an `under_review` entry next to the
+original decision, and confirms.
 
 
 ---
@@ -53,19 +79,40 @@
 
 ### Signal one — the model signal
 
-**What it measures:**
+**What it measures:** Perplexity, meaning how surprised a local GPT-2 model is by
+each next token in the first 400 tokens, mapped onto 0–1 so that low
+perplexity (very predictable) gives a high, AI-like score.
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** A language model writes
+by repeatedly choosing a likely next token, so its output is text a model finds
+easy to predict. People make less predictable choices: a specific detail, an
+unusual word, an abrupt turn.
 
-**What it can't see:**
+**What it can't see:** Who wrote it. Predictability isn't authorship. The
+signal rewards common words in short, ordinary sentences, so a second-language
+writer, a younger writer, or anyone writing plainly on purpose reads as
+machine-like. It also fails the other way: AI text with rare or ornate
+vocabulary, or AI text run through a paraphraser, reads as human. It only sees
+400 tokens and is noisy on short text.
 
 ### Signal two — the style signal
 
-**What it measures:**
+**What it measures:** The shape of the text, without reading it. Three measures
+are combined: sentence-length spread (stdev ÷ mean words per sentence),
+vocabulary variety (a length-corrected type-token ratio), and punctuation
+density and variety (commas, semicolons, colons, dashes, brackets, `!`, `?`,
+quotes per word).
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** "Most likely next word"
+produces even, mid-length sentences, a safe band of vocabulary and tidy, sparse
+punctuation. Human writing is lumpier: a three-word sentence next to a
+forty-word one, an aside in dashes.
 
-**What it can't see:**
+**What it can't see:** Meaning. Anything that changes the shape without
+changing the substance moves it: typos (inflate vocabulary variety), chopping
+or merging sentences, a pasted quotation or list, extra dashes. All of these
+are cheap to do on purpose. It is also weak on short text, where a single
+sentence has no spread at all.
 
 ### The combining rule
 
