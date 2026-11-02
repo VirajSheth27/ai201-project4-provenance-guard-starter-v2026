@@ -86,8 +86,14 @@ DISAGREEMENT_GAP = 0.35
 # getting through. There is no setting that avoids the trade — only settings
 # that decide who pays for it.
 
+# The AI line sits high on purpose: in calibration, clearly-AI text scored
+# 0.72 and lightly-edited AI 0.66. At 0.70 the first is called AI and the second
+# is "unsure". Missing edited AI costs the site a little; calling a writer's
+# own work AI costs them a lot. The unsure band (0.35–0.70) is wider than the
+# human band below it for the same reason.
+
 HUMAN_THRESHOLD = 0.35
-AI_THRESHOLD = 0.65
+AI_THRESHOLD = 0.70
 
 # ⚠️ One thing that catches people out in Milestone 5. A weighted average can
 # only land between its two inputs — so while `style_signal` is still the stub

@@ -238,9 +238,7 @@ def submit():
     style_score = stylometry.style_signal(text)
     confidence = scoring.combine_signals(model_score, style_score)
 
-    # The label is a placeholder until Milestone 5.
-    guess = "pending"
-    label = "pending"
+    guess, label = scoring.score_to_label(confidence)
 
     audit.log_decision(
         content_id=content_id,
@@ -296,14 +294,47 @@ def appeal():
     to the person on the other end. It's the only thing standing between a
     wrong accusation and nothing at all.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return _reject("unknown", 400, "invalid_input",
+                       "Send a JSON object with 'content_id' and 'reasoning'.",
+                       route="appeal")
 
-    # TODO: delete this and build the route.
+    content_id = payload.get("content_id")
+    reasoning = payload.get("reasoning")
+    if not isinstance(content_id, str) or not content_id.strip():
+        return _reject("unknown", 400, "invalid_input",
+                       "'content_id' is required and must be a non-empty string.",
+                       route="appeal")
+    content_id = content_id.strip()
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        return _reject("unknown", 400, "invalid_input",
+                       "'reasoning' is required and must be a non-empty string.",
+                       route="appeal", attempted_content_id=content_id)
+
+    # Only a real decision can be appealed. The id goes in the rejection as
+    # `attempted_content_id`, not `content_id`: otherwise the rejection itself
+    # would make the fake id "exist" for the next appeal.
+    decisions = [e for e in audit.entries_for(content_id) if e.get("status") == "decided"]
+    if not decisions:
+        return _reject("unknown", 404, "not_found",
+                       f"No submission with content_id '{content_id}'. Check it "
+                       f"matches the one you got back from /submit.",
+                       route="appeal", attempted_content_id=content_id)
+
+    entry = audit.log_appeal(
+        content_id=content_id,
+        creator_id=decisions[0]["creator_id"],
+        reasoning=reasoning,
+    )
+
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /appeal isn't built yet — see the TODO in app.py.",
-        "you_sent": payload,
-    }), 501
+        "content_id": content_id,
+        "status": "under_review",
+        "message": "Thanks. Your appeal is recorded next to the original "
+                   "decision, and the decision is now marked as under review.",
+        "appealed_at": entry["timestamp"],
+    })
 
 
 # ── Already works ─────────────────────────────────────────────────────────────
