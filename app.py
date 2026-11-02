@@ -30,6 +30,7 @@ from flask import Flask, jsonify, request
 
 import audit
 import config
+import detector
 
 app = Flask(__name__)
 
@@ -199,17 +200,76 @@ def submit():
     what should this do when `text` is missing, empty, or enormous? A crash on
     a malformed input is one of the most common real failures there is.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return _reject("unknown", 400, "invalid_input",
+                       "Send a JSON object with 'text' and 'creator_id'.")
 
-    # TODO: delete this and build the route.
+    creator_id = payload.get("creator_id")
+    if not isinstance(creator_id, str) or not creator_id.strip():
+        return _reject("unknown", 400, "invalid_input",
+                       "'creator_id' is required and must be a non-empty string.")
+
+    text = payload.get("text")
+    if not isinstance(text, str) or not text.strip():
+        return _reject(creator_id, 400, "invalid_input",
+                       "'text' is required and must be a non-empty string.")
+    if len(text) > config.MAX_TEXT_CHARS:
+        return _reject(creator_id, 413, "too_long",
+                       f"'text' is {len(text):,} characters; the limit is "
+                       f"{config.MAX_TEXT_CHARS:,}.", text_length=len(text))
+    if len(text.split()) < config.MIN_TEXT_WORDS:
+        return _reject(creator_id, 422, "too_short",
+                       f"'text' needs at least {config.MIN_TEXT_WORDS} words to "
+                       f"say anything about it.", text_length=len(text))
+
+    content_id = uuid.uuid4().hex
+
+    try:
+        model_score = detector.model_signal(text)
+    except detector.DetectorUnavailable as exc:
+        return _reject(creator_id, 503, "detector_unavailable", str(exc))
+    except ValueError as exc:
+        # The tokenizer can still find too few tokens in odd input.
+        return _reject(creator_id, 422, "too_short", str(exc))
+
+    # Milestone 3: one signal. Style, confidence and label are placeholders
+    # until Milestones 4 and 5.
+    guess = "pending"
+    label = "pending"
+
+    audit.log_decision(
+        content_id=content_id,
+        creator_id=creator_id,
+        guess=guess,
+        model_score=model_score,
+        style_score=None,
+        combined_score=None,
+        label=label,
+        status="decided",
+    )
+
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /submit isn't built yet — see the TODO in app.py.",
-        "you_sent": {
-            "text_length": len(payload.get("text", "")),
-            "creator_id": payload.get("creator_id"),
-        },
-    }), 501
+        "content_id": content_id,
+        "creator_id": creator_id,
+        "guess": guess,
+        "confidence": None,
+        "label": label,
+        "model_score": model_score,
+        "style_score": None,
+        "status": "decided",
+    })
+
+
+def _reject(creator_id: str, status: int, error: str, message: str, **extra):
+    """
+    Refuse a request: log it as a rejection, then answer with a JSON error.
+
+    Every refusal leaves a trace, so a run of bad inputs shows up in the log
+    instead of as an absence.
+    """
+    audit.log_rejection(creator_id=creator_id, reason=error, http_status=status, **extra)
+    return jsonify({"error": error, "message": message}), status
 
 
 @app.post("/appeal")

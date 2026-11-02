@@ -1,0 +1,13 @@
+{"timestamp": "2026-11-02T00:27:56+00:00", "content_id": "3b281c83399d43918c0b705b33511908", "creator_id": "viraj_m3_ai", "guess": "pending", "model_score": 0.7575, "style_score": null, "combined_score": null, "label": "pending", "status": "decided"}
+{"timestamp": "2026-11-02T00:27:57+00:00", "content_id": "95bdb0558b8e44e595c49081b1488013", "creator_id": "viraj_m3_human", "guess": "pending", "model_score": 0.318, "style_score": null, "combined_score": null, "label": "pending", "status": "decided"}
+{"timestamp": "2026-11-02T00:27:57+00:00", "content_id": "e1aa280179af4d63b4233d95393ccb9a", "creator_id": "viraj_m3_border", "guess": "pending", "model_score": 0.5344, "style_score": null, "combined_score": null, "label": "pending", "status": "decided"}
+{"timestamp": "2026-11-02T00:27:58+00:00", "creator_id": "bad_missing", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-02T00:27:58+00:00", "creator_id": "bad_empty", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-02T00:27:58+00:00", "creator_id": "bad_ws", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-02T00:27:58+00:00", "creator_id": "bad_null", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-02T00:27:58+00:00", "creator_id": "bad_num", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-02T00:27:58+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-02T00:27:58+00:00", "creator_id": "bad_short", "event": "rejected", "status": "rejected", "reason": "too_short", "http_status": 422, "text_length": 9}
+{"timestamp": "2026-11-02T00:27:58+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-02T00:27:58+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-02T00:27:58+00:00", "creator_id": "eval_bad_huge", "event": "rejected", "status": "rejected", "reason": "too_long", "http_status": 413, "text_length": 250000}

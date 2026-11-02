@@ -168,15 +168,30 @@ sentence has no spread at all.
      two off the response, so leaving them out costs you next unit's
      diagnostics. -->
 
+*Milestone 3 run: one signal wired in, confidence and label still placeholders.*
+
 ```bash
 $ curl -X POST http://127.0.0.1:5000/submit \
   -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+  -d '{"text": "I tried using that new AI writer for my history paper last night, and honestly? Total disaster. It kept spitting out these massive, robotic paragraphs that sounded like a textbook swallowed a dictionary. I ended up scraping the whole thing at 2 a.m. and rewriting it myself while downing a third cup of cold coffee. It’s not perfect, and my grammar is probably a bit messy because I was exhausted, but at least it actually sounds like me.", "creator_id": "viraj_m3_human"}'
 ```
 
 ```json
-
+{"confidence":null,"content_id":"95bdb0558b8e44e595c49081b1488013","creator_id":"viraj_m3_human","guess":"pending","label":"pending","model_score":0.318,"status":"decided","style_score":null}
 ```
+
+A malformed one, for contrast:
+
+```bash
+$ curl -X POST http://127.0.0.1:5000/submit \
+  -H "Content-Type: application/json" \
+  -d '{"text": null, "creator_id": "bad_null"}'
+```
+
+```json
+{"error":"invalid_input","message":"'text' is required and must be a non-empty string."}
+```
+(HTTP 400)
 
 **An appeal**
 
@@ -196,8 +211,14 @@ $ curl -X POST http://127.0.0.1:5000/appeal \
 $ curl "http://127.0.0.1:5000/log?limit=3"
 ```
 
-```json
+*Milestone 3 run: the two submissions above, plus a too-long one, as they landed in `logs/audit.jsonl`.*
 
+```json
+{"count": 3, "entries": [
+  {"combined_score": null, "content_id": "95bdb0558b8e44e595c49081b1488013", "creator_id": "viraj_m3_human", "guess": "pending", "label": "pending", "model_score": 0.318, "status": "decided", "style_score": null, "timestamp": "2026-11-02T00:27:57+00:00"},
+  {"creator_id": "bad_null", "event": "rejected", "http_status": 400, "reason": "invalid_input", "status": "rejected", "timestamp": "2026-11-02T00:27:58+00:00"},
+  {"creator_id": "eval_bad_huge", "event": "rejected", "http_status": 413, "reason": "too_long", "status": "rejected", "text_length": 250000, "timestamp": "2026-11-02T00:27:58+00:00"}
+]}
 ```
 
 ---
