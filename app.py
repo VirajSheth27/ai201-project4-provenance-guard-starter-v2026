@@ -154,7 +154,7 @@ def health():
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
 
 @app.post("/submit")
-# @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
 def submit():
     """
     Take a piece of text, decide about it, log the decision, answer.
@@ -249,6 +249,15 @@ def submit():
         combined_score=confidence,
         label=label,
         status="decided",
+        # The settings that turned these scores into this label. Without them
+        # an entry from before a threshold change and one from after look
+        # identical, and the decision can't be reconstructed from the log.
+        scoring={
+            "weights": [config.WEIGHT_MODEL_SIGNAL, config.WEIGHT_STYLE_SIGNAL],
+            "disagreement_gap": config.DISAGREEMENT_GAP,
+            "thresholds": [config.HUMAN_THRESHOLD, config.AI_THRESHOLD],
+        },
+        text_length=len(text),
     )
 
     return jsonify({

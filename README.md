@@ -366,7 +366,9 @@ $ curl "http://127.0.0.1:5000/log?limit=2"
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+**My limits:** 5 per minute, 50 per day, on `POST /submit` only
+(`config.RATE_LIMIT_PER_MINUTE`, `config.RATE_LIMIT_PER_DAY`; switched on with
+`RATE_LIMITING_ENABLED` and the `@limiter.limit(...)` decorator in `app.py`).
 
 **Why those numbers and not others:**
 <!-- Think about two people: a real writer submitting their own work a few
@@ -374,16 +376,73 @@ $ curl "http://127.0.0.1:5000/log?limit=2"
      thresholds. Your numbers have to be liveable for the first and hostile to
      the second. -->
 
-**What a caller counts as:** <!-- per address, or per creator_id? They fail
+*The writer:* someone checking their own piece submits it, reads the label,
+maybe fixes a sentence and submits again. Five a minute is more than a person
+editing between submissions ever needs, and 50 a day covers a long session
+across several pieces. They should never see a 429.
+
+*The script:* mapping where my thresholds sit means sending the same text with
+small variations, hundreds or thousands of times, and watching the score
+move. At 5 a minute a burst is cut off after five, and at 50 a day one
+creator_id would need weeks to send a thousand variations.
+
+I didn't go lower (e.g. 3/min, 20/day) because a writer fixing typos in quick
+succession could hit that, and a 429 on your own work reads like being
+treated as a suspect. I didn't keep the starter's 10/min and 200/day because
+200 a day is enough to map a threshold to two decimal places in an afternoon.
+
+**What a caller counts as:** per `creator_id`, falling back to the caller's IP
+address when a request has no usable `creator_id` (the starter's
+`app.py::rate_limit_key`, kept as-is).
+<!-- per address, or per creator_id? They fail
 differently — one script can look like a thousand callers, and one household
 can look like one. -->
+
+How each fails:
+- **Per creator_id** fails against a script that makes up a new `creator_id`
+  for every request. It becomes a thousand callers, each well under the limit.
+  The attack set does exactly this (`attacker_<id>`), which is why none of
+  `attacks.csv` trips the limit. The fix would be a creator_id that comes
+  from an account the service issued, not one the caller types.
+- **Per IP address** fails the other way: a classroom, office or household
+  behind one address looks like one caller, so five classmates submitting in the
+  same minute would lock each other out. It's also easy to evade by anyone
+  with more than one address.
+
+I chose per-creator because the person I'm protecting is the writer, and a
+limit that blocks a writer because of who shares their wifi is the worse
+failure. The IP fallback means a request without a creator_id still counts
+against something.
 
 **The run of status codes when I pushed past it:**
 
 <!-- python run_attacks.py --flood 15 -->
 
+`python run_attacks.py --flood 15` (15 submissions in a burst as `flood_tester`;
+written to `results/flood_2026-11-10_1153.md`):
+
+```
+200 200 200 200 200 429 429 429 429 429 429 429 429 429 429
 ```
 
+Every one of the ten 429s left a `rejected` entry in `logs/audit.jsonl`,
+written by the 429 handler in `app.py::rate_limited`:
+
+```json
+{"creator_id": "flood_tester", "event": "rejected", "limit": "5 per 1 minute", "reason": "rate_limited", "status": "rejected", "timestamp": "2026-11-10T16:53:58+00:00"}
+```
+
+**Is the log complete?** Every decision records the nine required fields, and
+I added two more (the `scoring` settings in force and `text_length`) so a
+decision can be reconstructed from the log alone. Without the settings, an
+entry from before my Milestone 5 change and one from after would look
+identical. Requests my own route refuses are logged too, through
+`app.py::_reject` → `audit.log_rejection`. One decision and one refusal,
+from `GET /log`:
+
+```json
+{"combined_score": 0.5334, "content_id": "e00b6ad492804f98ba15de1ba051f0ae", "creator_id": "u8_log_check_4", "guess": "unsure", "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "model_score": 0.3418, "scoring": {"disagreement_gap": 0.35, "thresholds": [0.35, 0.7], "weights": [0.5, 0.5]}, "status": "decided", "style_score": 0.7251, "text_length": 252, "timestamp": "2026-11-10T16:54:35+00:00"}
+{"creator_id": "u8_log_check_5", "event": "rejected", "http_status": 400, "reason": "invalid_input", "status": "rejected", "timestamp": "2026-11-10T16:54:36+00:00"}
 ```
 
 ---
