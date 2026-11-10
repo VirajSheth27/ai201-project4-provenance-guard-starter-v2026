@@ -634,19 +634,130 @@ FP05 (perplexity 16.5–23.5, punctuation density ≤ 0.03 in all four).
 
 <!-- Your five criteria across three trials. `run_eval.py --label before`. -->
 
+`python run_eval.py --label before` (criteria 1, 2, 3, 5 from `scenarios.py`)
+and `python run_appeals.py --label before` (criterion 4), run back to back with
+nothing changed in between, against the same service as the attack run.
+Raw output: `results/run_2026-11-10_1212_before.md` and
+`results/appeal_run_2026-11-10_1212_before.md`.
+
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| 1. Human writing labelled AI | ≤ 1 of 10, every trial | 0/10 | 0/10 | 0/10 | MET |
+| 2. AI vs. human score spread | mean gap ≥ 0.25, every trial | 0.270 | 0.270 | 0.270 | MET |
+| 3. All three labels reachable | 3 of 3 labels and ≥ 2 of 3 borderline → unsure | 3/3, 3/3 | 3/3, 3/3 | 3/3, 3/3 | MET |
+| 4. Appeals change status and are recorded | 5 of 5 real and 2 of 2 fake | 5/5, 2/2 | 5/5, 2/2 | 5/5, 2/2 | MET |
+| 5. Bad input refused cleanly and logged | 7 of 7 4xx, 0 × 500, 7 of 7 logged | 7/7, 0, 7/7 | 7/7, 0, 7/7 | 7/7, 0, 7/7 | MET |
 
-**Real output from one trial**, pasted as text, naming the file and function
-that produced it:
+**The three trials are identical to four decimal places.** Neither signal is
+random: GPT-2 runs in eval mode with no sampling, and the stylometry is
+arithmetic. So the repeats are evidence of stability, not a skipped step.
+
+How the numbers were read:
+
+- **Criterion 1** counts `guess == "ai"`. ⚠️ **The set is not what the
+  criterion says.** Criterion 1 was written as "10 pieces of *my own* writing".
+  Two of the ten are mine. The other eight are real human writing from
+  published magazine essays and headlines (credited in `scenarios.py`), because
+  I didn't have ten pieces of my own to hand. So this run shows the service
+  doesn't accuse *polished published* writers. It says less about *me*, and
+  nothing about the plain writers the attack set's false-positive rows show
+  it does accuse.
+- **Criterion 2** is the mean `confidence` of 5 AI texts (generated for this
+  test, 173–183 words) minus the mean of 5 human texts (published excerpts,
+  167–217 words). AI mean 0.715, human mean 0.445.
+- **Criterion 3** counts which of the three guesses appear across the 9 inputs,
+  and how many of the last 3 (the borderline ones) come out `unsure`.
+- **Criterion 4** is checked by `run_appeals.py`, which I added. `run_eval.py`
+  only posts to `/submit`, and an appeal needs a real `content_id` first. It
+  checks each appeal against `logs/audit.jsonl`, not just the response.
+- **Criterion 5** checks each response's status, and counts `rejected` entries
+  in the audit log between the eval's start and end (log lines 106–214).
+
+### Real output, one trial each
+
+**Criterion 1**: `run_eval.py::main`, scenario `own writing`, trial 1
+(order: mine ×2, Halifax, equality, 1646 headline, dust, 4 am idea,
+church & state, Lamarck headline, plain-prose headline):
 
 ```json
+{"status": 200, "guess": "human", "confidence": 0.3137, "model_score": 0.318, "style_score": 0.3094, "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.", "sent": "I tried using that new AI writer for my history paper last night, and "}
+{"status": 200, "guess": "human", "confidence": 0.2568, "model_score": 0.3169, "style_score": 0.1967, "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.", "sent": "I had always been under the impression that like most other tales in t"}
+{"status": 200, "guess": "human", "confidence": 0.3238, "model_score": 0.5206, "style_score": 0.1271, "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.", "sent": "Six weeks after two open-heart surgeries in 12 days, Roshi Joan Halifa"}
+{"status": 200, "guess": "unsure", "confidence": 0.4231, "model_score": 0.6924, "style_score": 0.1538, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "It’s no accident that equality comes first among the ‘self-evident’ tr"}
+{"status": 200, "guess": "unsure", "confidence": 0.4145, "model_score": 0.3127, "style_score": 0.5163, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "In the summer of 1646, the idea of equality gained new and profound de"}
+{"status": 200, "guess": "unsure", "confidence": 0.5691, "model_score": 0.6765, "style_score": 0.4617, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "In the story of cosmic history, one of the most important supporting c"}
+{"status": 200, "guess": "unsure", "confidence": 0.4092, "model_score": 0.5743, "style_score": 0.244, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "How would it be if you woke up one morning around 4 am, consumed by an"}
+{"status": 200, "guess": "unsure", "confidence": 0.4414, "model_score": 0.6842, "style_score": 0.1985, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "The idea of separating church and state – now entrenched in many moder"}
+{"status": 200, "guess": "human", "confidence": 0.2303, "model_score": 0.0668, "style_score": 0.3937, "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.", "sent": "Long mocked and misunderstood, Lamarck’s radical idea that organisms s"}
+{"status": 200, "guess": "human", "confidence": 0.0809, "model_score": 0.1619, "style_score": 0.0, "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.", "sent": "Stop Trying to Sound Smart: The Art of Writing Plain, Beautiful Prose"}
+```
 
+**Criterion 2**: `run_eval.py::main`, scenarios `ai for spread` and
+`human for spread`, trial 1:
+
+```json
+{"status": 200, "guess": "unsure", "confidence": 0.668, "model_score": 0.8248, "style_score": 0.5111, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "Remote work has fundamentally reshaped the modern professional landsca"}
+{"status": 200, "guess": "unsure", "confidence": 0.6834, "model_score": 0.9194, "style_score": 0.4473, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "Sleep plays a crucial role in maintaining overall health and well-bein"}
+{"status": 200, "guess": "ai", "confidence": 0.7083, "model_score": 0.8641, "style_score": 0.5524, "label": "This writing shows strong signs of being generated by AI: two separate checks both pointed that way. Automated checks can be wrong, especially on simple, plainly written work. If you wrote this yourself, ask for a review and tell us how you wrote it; your explanation will be recorded next to this decision and it will be marked as under review.", "sent": "Social media has become an integral part of modern life, transforming "}
+{"status": 200, "guess": "ai", "confidence": 0.7544, "model_score": 0.8824, "style_score": 0.6264, "label": "This writing shows strong signs of being generated by AI: two separate checks both pointed that way. Automated checks can be wrong, especially on simple, plainly written work. If you wrote this yourself, ask for a review and tell us how you wrote it; your explanation will be recorded next to this decision and it will be marked as under review.", "sent": "Financial literacy is an essential skill that empowers individuals to "}
+{"status": 200, "guess": "ai", "confidence": 0.7585, "model_score": 0.9145, "style_score": 0.6025, "label": "This writing shows strong signs of being generated by AI: two separate checks both pointed that way. Automated checks can be wrong, especially on simple, plainly written work. If you wrote this yourself, ask for a review and tell us how you wrote it; your explanation will be recorded next to this decision and it will be marked as under review.", "sent": "Climate change represents one of the most pressing challenges facing h"}
+{"status": 200, "guess": "unsure", "confidence": 0.3563, "model_score": 0.4969, "style_score": 0.2156, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "Six weeks after two open-heart surgeries in 12 days, Roshi Joan Halifa"}
+{"status": 200, "guess": "unsure", "confidence": 0.4231, "model_score": 0.6924, "style_score": 0.1538, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "It’s no accident that equality comes first among the ‘self-evident’ tr"}
+{"status": 200, "guess": "unsure", "confidence": 0.5507, "model_score": 0.6827, "style_score": 0.4187, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "In the story of cosmic history, one of the most important supporting c"}
+{"status": 200, "guess": "unsure", "confidence": 0.3644, "model_score": 0.449, "style_score": 0.2798, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "How would it be if you woke up one morning around 4 am, consumed by an"}
+{"status": 200, "guess": "unsure", "confidence": 0.5282, "model_score": 0.6918, "style_score": 0.3647, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "All this means that Jefferson’s ‘wall of separation’ can’t sensibly pr"}
+```
+
+**Criterion 3**: `run_eval.py::main`, scenario `label coverage`, trial 1
+(order: 3 clearly AI, 3 clearly human, 3 borderline):
+
+```json
+{"status": 200, "guess": "ai", "confidence": 0.7246, "model_score": 0.7575, "style_score": 0.6916, "label": "This writing shows strong signs of being generated by AI: two separate checks both pointed that way. Automated checks can be wrong, especially on simple, plainly written work. If you wrote this yourself, ask for a review and tell us how you wrote it; your explanation will be recorded next to this decision and it will be marked as under review.", "sent": "In the contemporary digital era, the proliferation of artificial intel"}
+{"status": 200, "guess": "ai", "confidence": 0.7585, "model_score": 0.9145, "style_score": 0.6025, "label": "This writing shows strong signs of being generated by AI: two separate checks both pointed that way. Automated checks can be wrong, especially on simple, plainly written work. If you wrote this yourself, ask for a review and tell us how you wrote it; your explanation will be recorded next to this decision and it will be marked as under review.", "sent": "Climate change represents one of the most pressing challenges facing h"}
+{"status": 200, "guess": "unsure", "confidence": 0.6834, "model_score": 0.9194, "style_score": 0.4473, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "Sleep plays a crucial role in maintaining overall health and well-bein"}
+{"status": 200, "guess": "human", "confidence": 0.3137, "model_score": 0.318, "style_score": 0.3094, "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.", "sent": "I tried using that new AI writer for my history paper last night, and "}
+{"status": 200, "guess": "human", "confidence": 0.2568, "model_score": 0.3169, "style_score": 0.1967, "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.", "sent": "I had always been under the impression that like most other tales in t"}
+{"status": 200, "guess": "unsure", "confidence": 0.4231, "model_score": 0.6924, "style_score": 0.1538, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "It’s no accident that equality comes first among the ‘self-evident’ tr"}
+{"status": 200, "guess": "unsure", "confidence": 0.5267, "model_score": 0.5344, "style_score": 0.5189, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "Content creation has shifted dramatically because of new AI tools. Man"}
+{"status": 200, "guess": "unsure", "confidence": 0.6625, "model_score": 0.5873, "style_score": 0.7378, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "Artificial intelligence has transformed our approach to daily tasks. T"}
+{"status": 200, "guess": "unsure", "confidence": 0.4859, "model_score": 0.5024, "style_score": 0.4694, "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.", "sent": "Sleep matters more than most of us admit. While we sleep, the body rep"}
+```
+
+**Criterion 4**: `run_appeals.py::run_trial`, trial 1, one real appeal and one
+fake one (all 7 are in the results file). Then the two log entries for that
+real `content_id`, read back from `logs/audit.jsonl` with `audit.entries_for`:
+
+```json
+{"content_id": "642627f600854f9fbfa9cb1cba4dfafb", "submit_status": 200, "reasoning": "Trial 1, piece 1: I wrote this myself and can show my drafts. (e4aafc)", "response_status": 200, "response": {"appealed_at": "2026-11-10T17:12:21+00:00", "content_id": "642627f600854f9fbfa9cb1cba4dfafb", "message": "Thanks. Your appeal is recorded next to the original decision, and the decision is now marked as under review.", "status": "under_review"}, "checks": {"returned_200": true, "response_under_review": true, "appeal_entry_logged": true, "logged_under_review": true, "reasoning_exact": true, "original_unchanged": true}, "passed": true}
+{"content_id": "fakee4aafct1n1", "response_status": 404, "response": {"error": "not_found", "message": "No submission with content_id 'fakee4aafct1n1'. Check it matches the one you got back from /submit."}, "checks": {"returned_404": true, "no_appeal_logged": true}, "passed": true}
+```
+
+```json
+{"timestamp": "2026-11-10T17:12:21+00:00", "content_id": "642627f600854f9fbfa9cb1cba4dfafb", "creator_id": "appeal_e4aafc_t1_1", "guess": "human", "model_score": 0.318, "style_score": 0.3094, "combined_score": 0.3137, "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.", "status": "decided", "scoring": {"weights": [0.5, 0.5], "disagreement_gap": 0.35, "thresholds": [0.35, 0.7]}, "text_length": 438}
+{"timestamp": "2026-11-10T17:12:21+00:00", "content_id": "642627f600854f9fbfa9cb1cba4dfafb", "creator_id": "appeal_e4aafc_t1_1", "event": "appeal", "status": "under_review", "reasoning": "Trial 1, piece 1: I wrote this myself and can show my drafts. (e4aafc)"}
+```
+
+**Criterion 5**: `run_eval.py::main`, scenario `bad input`, trial 1. Then
+the seven `rejected` entries that trial wrote to `logs/audit.jsonl`:
+
+```json
+{"status": 400, "guess": null, "confidence": null, "model_score": null, "style_score": null, "label": null, "sent": "{\"creator_id\": \"eval_bad_missing\"}"}
+{"status": 400, "guess": null, "confidence": null, "model_score": null, "style_score": null, "label": null, "sent": "(empty text)"}
+{"status": 400, "guess": null, "confidence": null, "model_score": null, "style_score": null, "label": null, "sent": "   \n\t  "}
+{"status": 400, "guess": null, "confidence": null, "model_score": null, "style_score": null, "label": null, "sent": "{\"text\": null, \"creator_id\": \"eval_bad_null\"}"}
+{"status": 400, "guess": null, "confidence": null, "model_score": null, "style_score": null, "label": null, "sent": "{\"text\": 12345, \"creator_id\": \"eval_bad_number\"}"}
+{"status": 413, "guess": null, "confidence": null, "model_score": null, "style_score": null, "label": null, "sent": "word word word word word word word word word word word word word word "}
+{"status": 400, "guess": null, "confidence": null, "model_score": null, "style_score": null, "label": null, "sent": "{\"text\": \"A perfectly ordinary paragraph of writing that has no creator attached to it at all.\"}"}
+```
+
+```json
+{"timestamp": "2026-11-10T17:12:20+00:00", "creator_id": "eval_bad_missing", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-10T17:12:20+00:00", "creator_id": "eval_bad_empty", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-10T17:12:20+00:00", "creator_id": "eval_bad_whitespace", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-10T17:12:20+00:00", "creator_id": "eval_bad_null", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-10T17:12:20+00:00", "creator_id": "eval_bad_number", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
+{"timestamp": "2026-11-10T17:12:20+00:00", "creator_id": "eval_bad_huge", "event": "rejected", "status": "rejected", "reason": "too_long", "http_status": 413, "text_length": 250000}
+{"timestamp": "2026-11-10T17:12:20+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "invalid_input", "http_status": 400}
 ```
 
 **Diagnoses**
