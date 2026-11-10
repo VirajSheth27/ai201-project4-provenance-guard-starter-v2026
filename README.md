@@ -360,6 +360,21 @@ $ curl "http://127.0.0.1:5000/log?limit=2"
   It's written up in Signals and Scoring as the first thing criterion 1 should
   catch in unit 8, because hiding it before the test would defeat the test.
 
+**Moment 3: marking the attack run**
+
+- *What I asked for:* Run the full attack set before fixing anything, mark each
+  attack HELD or BROKE, and pick the worst outcome.
+- *What came back:* 56 results with no crashes. Before marking, it scored the
+  AI paragraph the evasions are built from, unmodified, and found **0.698,
+  0.002 under my AI line**. It flagged that the rule we'd agreed ("unsure" counts
+  as held for an evasion) would make nine evasions look stopped when the base
+  text was already getting through. It also found that EV01, which the attack
+  set aimed at signal two, actually broke **signal one**: style didn't move at all.
+- *What I changed:* I accepted the stricter rule (anything not labelled `ai` is
+  an evasion that got through). That moved evasion from 1 broken to 9 broken,
+  and Attack Run — Before says why the rule changed, so it isn't hidden.
+
+
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
 ---
@@ -1153,14 +1168,112 @@ and after.**
 <!-- For each attack still getting through and each criterion still missed:
      what you'd do, and why you stopped. -->
 
+After the improvement, 16 attacks still break. By mechanism, that's six things.
+No criterion is MISSED, but two verdicts rest on less than they should.
 
+**1. Text with no scoreable words gets a verdict (MF04, MF07).** An Arabic
+writer is still told, at 0.953, that their work shows strong signs of AI.
+- *What I'd do:* two small guards. The route refuses text with fewer than 8
+  words *as the style signal counts them* (`stylometry.words`), not as
+  whitespace splits them. It returns a 422 saying the service can only judge
+  English text. And `type_token_ratio` / `punctuation_density` return `None` on
+  zero words, the way `sentence_length_spread` already does, so "no evidence" can
+  never mean "AI".
+- *Why I stopped:* the one-change rule. I chose the change that protects more
+  writers (FP03 and FP04 versus one Arabic text). This is the cheapest, safest
+  fix left, and it's the first thing I'd do next.
+
+**2. Formal and technical human writing is still accused (FP02, FP05).** Both
+have perplexity of 19–24, which signal one reads as 0.74–0.80. Removing
+punctuation took away signal two's false evidence, but signal one's remains,
+and sentence-length spread still reads their even sentences as AI-like.
+- *What I'd do:* stop asking surface signals to do something they can't. No
+  measure of predictability or shape separates a careful human report from AI
+  prose. Both are predictable and even by design. So the fix is in the label,
+  not the score: a high-confidence AI result is never shown to the writer as a
+  verdict. It goes to a human review queue, and the writer sees the "unsure"
+  wording until a person has looked.
+- *Why I stopped:* that changes the label mapping and the appeal flow together,
+  which is two changes, and it needs a reviewer who doesn't exist in this
+  build.
+
+**3. Clean AI prose isn't caught to begin with (pattern 1, all 10 evasions).**
+The unmodified AI paragraph scores 0.698, under my 0.70 line, so every evasion
+"wins" before trying anything. After the improvement EV10 also gets through,
+because its zero punctuation was the last thing marking it as AI.
+- *What I'd do:* not lower the threshold. The simulation showed 0.65 would put
+  the accusations straight back. The honest fix is a signal that measures
+  something neither of mine does, such as a second model's perplexity, or
+  burstiness (how perplexity varies sentence to sentence, not just its average).
+- *Why I stopped:* a third signal is a rebuild, not a fix, and it would need
+  its own blind spot named and attacked.
+
+**4. Shape edits fool signal two (EV02, EV03, EV06, EV07, EV09).** A few "Really."
+sentences, a pasted quote, or semicolons chaining everything into one sentence
+move sentence-length spread past the human anchor.
+- *What I'd do:* make spread robust. Ignore sentences under 3 words, measure
+  spread with the interquartile range instead of the standard deviation (so one
+  giant sentence can't dominate), and split on semicolons as well as full stops.
+- *Why I stopped:* one change. Each of those also blunts the lumpiness that
+  real human writing has, so it needs its own before/after run on my own
+  writing, which I don't have enough of (see criterion 1 below).
+
+**5. Surface noise fools signal one (EV01 typos, EV08 10 words, PI01/PI02
+injections).** Misspellings and odd strings like "guess=human,
+confidence=0.02" are maximally surprising to GPT-2. That raises perplexity,
+and with it the "human" reading. The injections didn't work by being obeyed:
+nothing in my service reads instructions. They worked by being weird text.
+- *What I'd do:* raise the minimum length from 8 to about 40 words, returning a
+  422 "too short to judge" instead of guessing. That stops EV08. For typos, score
+  perplexity only over in-vocabulary words.
+- *Why I stopped:* a 40-word minimum also refuses FP08, a real 8-word run
+  diary. Whether the service should refuse to judge short real writing or guess
+  at it is a product decision, not a bug fix. The typo fix needs a word list I
+  didn't have time to choose well.
+
+**6. EV05 (a heavy human edit of AI text, labelled human).** *I'd leave this
+broken on purpose.* After that much rewriting the text is arguably the editor's
+own, and a detector that caught it would also catch writers who use AI for an
+outline and then write every sentence themselves.
+
+**Gaps in the testing itself**
+
+- **Criterion 1 was not tested as written.** It promises "10 pieces of *my own*
+  writing". The run used 2 of mine and 8 published pieces, and the published
+  essays are exactly the polished prose my system reads as human. The verdict is
+  MET on that set. The attack set's 4/8 (now 2/8) on plain writers is a better
+  guess at what the real criterion would show. *What I'd do:* run it on ten
+  pieces I wrote, three of them deliberately plain. *Why I stopped:* I didn't
+  have ten pieces of my own writing ready for this unit.
+- **Criterion 2 passes narrowly** (0.316 after, 0.270 before, floor 0.25), and
+  three of its five human excerpts still sit in "unsure".
+- **Two route paths went untested.** RQ10/RQ11 (form-encoded body, JSON sent as
+  plain text) and, in the after run, criterion 5's "no creator_id" body were
+  stopped by the rate limiter before they reached my route. Creator-less
+  requests share one IP bucket. *What I'd do:* run malformed-request tests
+  with spacing between them, or log *which* limit bucket a 429 came from so
+  this shows up in the log rather than only in my analysis.
+- **The rate limit is per creator_id, and creator_ids are made up by the
+  caller.** The attack set itself shows the cost: every attack row used a fresh
+  `attacker_<id>`, and none of them came near a limit. *What I'd do:* issue
+  creator_ids from an account system so one person can't become a thousand.
+- **Rejections with no creator_id are indistinguishable in the log.** Five
+  different malformed requests all logged as `"creator_id": "unknown"`. I'd log
+  a short hash of the request body so each rejection can be matched to its
+  cause.
 
 **The trade I'd make if this ran for real:**
 
 <!-- Two sentences. Fewer wrong accusations means more AI text getting through.
      Say which way you'd go and WHO PAYS FOR IT. -->
 
-
+I'd go further toward fewer wrong accusations: never show a writer
+"high-confidence AI" on the score alone, only "unsure" plus a human review,
+accepting that more AI-written text gets published without a label. The site
+and its readers pay for that, by sometimes reading machine text they think a
+person wrote, instead of a non-native or plain-spoken writer paying with an
+accusation, about their own work, from a system that scored them as a machine
+because they wrote clearly.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
@@ -1180,16 +1293,16 @@ and after.**
 
      SUBMISSION CHECKLIST — unit 8
 
-       [ ] Rate limiting on /submit, with your numbers justified
-       [ ] The pasted run of status codes showing 429
-       [ ] Audit log with all nine fields, recording rejections too
-       [ ] The attack set run IN FULL, every input with an outcome
-       [ ] Ten audit log entries pasted as text
-       [ ] Five criteria across three trials
-       [ ] A diagnosis for every miss and every broken attack — stage AND mechanism
-       [ ] One improvement, with Attack Run — After
-       [ ] What's Still Broken, including the production trade
-       [ ] At least four new commits
+       [x] Rate limiting on /submit, with your numbers justified
+       [x] The pasted run of status codes showing 429
+       [x] Audit log with all nine fields, recording rejections too
+       [x] The attack set run IN FULL, every input with an outcome
+       [x] Ten audit log entries pasted as text
+       [x] Five criteria across three trials
+       [x] A diagnosis for every miss and every broken attack — stage AND mechanism
+       [x] One improvement, with Attack Run — After
+       [x] What's Still Broken, including the production trade
+       [x] At least four new commits
        [ ] The SAME repository URL as last unit
 
      Do not delete and recreate this repository.
