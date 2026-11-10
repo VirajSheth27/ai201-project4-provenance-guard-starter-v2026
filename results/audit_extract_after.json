@@ -1,0 +1,923 @@
+{
+ "count": 56,
+ "entries": [
+  {
+   "timestamp": "2026-11-10T17:23:21+00:00",
+   "content_id": "4a99a1a952af4d90ab1efb176115783d",
+   "creator_id": "attacker_EV01",
+   "guess": "unsure",
+   "model_score": 0.1635,
+   "style_score": 0.7093,
+   "combined_score": 0.4364,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 657
+  },
+  {
+   "timestamp": "2026-11-10T17:23:21+00:00",
+   "content_id": "b9867221cf1a475bb69e56556569e2bb",
+   "creator_id": "attacker_EV02",
+   "guess": "human",
+   "model_score": 0.5943,
+   "style_score": 0.0637,
+   "combined_score": 0.329,
+   "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 708
+  },
+  {
+   "timestamp": "2026-11-10T17:23:21+00:00",
+   "content_id": "0553902887b040e58e3178cf1c88aa77",
+   "creator_id": "attacker_EV03",
+   "guess": "unsure",
+   "model_score": 0.6662,
+   "style_score": 0.2544,
+   "combined_score": 0.4603,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 775
+  },
+  {
+   "timestamp": "2026-11-10T17:23:21+00:00",
+   "content_id": "28b27431e9614d38aa554eaa3f691ef5",
+   "creator_id": "attacker_EV04",
+   "guess": "unsure",
+   "model_score": 0.6114,
+   "style_score": 0.687,
+   "combined_score": 0.6492,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 658
+  },
+  {
+   "timestamp": "2026-11-10T17:23:22+00:00",
+   "content_id": "87183d246df547af9e3e008d3ec64d2b",
+   "creator_id": "attacker_EV05",
+   "guess": "human",
+   "model_score": 0.3212,
+   "style_score": 0.1035,
+   "combined_score": 0.2123,
+   "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 460
+  },
+  {
+   "timestamp": "2026-11-10T17:23:22+00:00",
+   "content_id": "094c670e20184702bc0fdafbdec546bc",
+   "creator_id": "attacker_EV06",
+   "guess": "human",
+   "model_score": 0.5727,
+   "style_score": 0.1156,
+   "combined_score": 0.3442,
+   "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 640
+  },
+  {
+   "timestamp": "2026-11-10T17:23:22+00:00",
+   "content_id": "b2441c6078e54771b31b2add3adb43a3",
+   "creator_id": "attacker_EV07",
+   "guess": "unsure",
+   "model_score": 0.5862,
+   "style_score": 0.4183,
+   "combined_score": 0.5023,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 749
+  },
+  {
+   "timestamp": "2026-11-10T17:23:22+00:00",
+   "content_id": "dd0bac8d0d344811b790d937786e872c",
+   "creator_id": "attacker_EV08",
+   "guess": "unsure",
+   "model_score": 0.2452,
+   "style_score": 0.5034,
+   "combined_score": 0.3743,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 65
+  },
+  {
+   "timestamp": "2026-11-10T17:23:22+00:00",
+   "content_id": "ccdf20be434f44bdb48240edd997df31",
+   "creator_id": "attacker_EV09",
+   "guess": "unsure",
+   "model_score": 0.7042,
+   "style_score": 0.2287,
+   "combined_score": 0.4665,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 805
+  },
+  {
+   "timestamp": "2026-11-10T17:23:22+00:00",
+   "content_id": "492a8b3f9b0445e49eceb702719a7b6e",
+   "creator_id": "attacker_EV10",
+   "guess": "unsure",
+   "model_score": 0.9792,
+   "style_score": 0.6128,
+   "combined_score": 0.69,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 544
+  },
+  {
+   "timestamp": "2026-11-10T17:23:22+00:00",
+   "content_id": "35f0b246e79d4616b63eb9010cc06bf7",
+   "creator_id": "attacker_FP01",
+   "guess": "unsure",
+   "model_score": 0.6175,
+   "style_score": 0.3904,
+   "combined_score": 0.504,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 523
+  },
+  {
+   "timestamp": "2026-11-10T17:23:22+00:00",
+   "content_id": "606ce9a80625483cb9d70d6be9e53e6e",
+   "creator_id": "attacker_FP02",
+   "guess": "ai",
+   "model_score": 0.7387,
+   "style_score": 0.777,
+   "combined_score": 0.7579,
+   "label": "This writing shows strong signs of being generated by AI: two separate checks both pointed that way. Automated checks can be wrong, especially on simple, plainly written work. If you wrote this yourself, ask for a review and tell us how you wrote it; your explanation will be recorded next to this decision and it will be marked as under review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 477
+  },
+  {
+   "timestamp": "2026-11-10T17:23:22+00:00",
+   "content_id": "724f46e73fba49e9a8d05b0e6f1ca8ce",
+   "creator_id": "attacker_FP03",
+   "guess": "unsure",
+   "model_score": 0.8051,
+   "style_score": 0.5807,
+   "combined_score": 0.6929,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 418
+  },
+  {
+   "timestamp": "2026-11-10T17:23:22+00:00",
+   "content_id": "2e19cbbd58d64d0195f22bd83225aa25",
+   "creator_id": "attacker_FP04",
+   "guess": "unsure",
+   "model_score": 0.8329,
+   "style_score": 0.5177,
+   "combined_score": 0.6753,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 443
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "6416cde3ee914a36b0cba6d49f4ea40e",
+   "creator_id": "attacker_FP05",
+   "guess": "ai",
+   "model_score": 0.8005,
+   "style_score": 0.7986,
+   "combined_score": 0.7995,
+   "label": "This writing shows strong signs of being generated by AI: two separate checks both pointed that way. Automated checks can be wrong, especially on simple, plainly written work. If you wrote this yourself, ask for a review and tell us how you wrote it; your explanation will be recorded next to this decision and it will be marked as under review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 393
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "9fe5f9a541ff48f097230c8fd4da7358",
+   "creator_id": "attacker_FP06",
+   "guess": "unsure",
+   "model_score": 0.8814,
+   "style_score": 0.35,
+   "combined_score": 0.6157,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 353
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "9b49c747f7c0410a852300d52c88205d",
+   "creator_id": "attacker_FP07",
+   "guess": "unsure",
+   "model_score": 0.8816,
+   "style_score": 0.2857,
+   "combined_score": 0.5837,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 335
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "ecde4a82d2e345b9b00ce3abbb52548b",
+   "creator_id": "attacker_FP08",
+   "guess": "human",
+   "model_score": 0.3223,
+   "style_score": 0.2651,
+   "combined_score": 0.2937,
+   "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 36
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "70c7ae6199f84e2c9488d4c7fde0a000",
+   "creator_id": "attacker_PI01",
+   "guess": "human",
+   "model_score": 0.4625,
+   "style_score": 0.019,
+   "combined_score": 0.2408,
+   "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 320
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "04a0355db8c44d56a06894b6b6240827",
+   "creator_id": "attacker_PI02",
+   "guess": "human",
+   "model_score": 0.2044,
+   "style_score": 0.0,
+   "combined_score": 0.1022,
+   "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 322
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "6170968ace9841278155619e597f8d7a",
+   "creator_id": "attacker_PI03",
+   "guess": "unsure",
+   "model_score": 0.5943,
+   "style_score": 0.4383,
+   "combined_score": 0.5163,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 377
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "da30e8cd033b45c2b016619ee8a7e141",
+   "creator_id": "attacker_PI04",
+   "guess": "unsure",
+   "model_score": 0.4998,
+   "style_score": 0.4255,
+   "combined_score": 0.4627,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 275
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "bd695a4c4950473d8e88f48f7fa03821",
+   "creator_id": "attacker_PI05",
+   "guess": "unsure",
+   "model_score": 0.6401,
+   "style_score": 0.2041,
+   "combined_score": 0.4221,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 213
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "851cfaacbce0415eb10e9f7aa1b4797c",
+   "creator_id": "attacker_PI06",
+   "guess": "unsure",
+   "model_score": 0.5583,
+   "style_score": 0.4025,
+   "combined_score": 0.4804,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 593
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "attacker_MF01",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "invalid_input",
+   "http_status": 400
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "attacker_MF02",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "too_short",
+   "http_status": 422,
+   "text_length": 1
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "attacker_MF03",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "too_short",
+   "http_status": 422,
+   "text_length": 21
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "7c469ad21a614a4098dcd2bd98a8de5c",
+   "creator_id": "attacker_MF04",
+   "guess": "unsure",
+   "model_score": 0.0112,
+   "style_score": 1.0,
+   "combined_score": 0.5056,
+   "label": "We can't tell whether this was written by a person or with help from AI. Some parts of it look like typical human writing and some look like typical AI writing, which is common, especially in clear, plain writing. This is not an accusation. If you wrote it yourself and want that on record, you can ask for a review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 31
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "attacker_MF05",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "too_short",
+   "http_status": 422,
+   "text_length": 4000
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "attacker_MF06",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "too_short",
+   "http_status": 422,
+   "text_length": 200
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "content_id": "4e1cb148fe164605a43a8df9661a9fd7",
+   "creator_id": "attacker_MF07",
+   "guess": "ai",
+   "model_score": 0.9064,
+   "style_score": 1.0,
+   "combined_score": 0.9532,
+   "label": "This writing shows strong signs of being generated by AI: two separate checks both pointed that way. Automated checks can be wrong, especially on simple, plainly written work. If you wrote this yourself, ask for a review and tell us how you wrote it; your explanation will be recorded next to this decision and it will be marked as under review.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 105
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "attacker_MF08",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "too_long",
+   "http_status": 413,
+   "text_length": 57640
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "attacker_RQ01",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "invalid_input",
+   "http_status": 400
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "unknown",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "invalid_input",
+   "http_status": 400
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "attacker_RQ03",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "invalid_input",
+   "http_status": 400
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "attacker_RQ04",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "invalid_input",
+   "http_status": 400
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "attacker_RQ05",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "invalid_input",
+   "http_status": 400
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "unknown",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "invalid_input",
+   "http_status": 400
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "unknown",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "invalid_input",
+   "http_status": 400
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "unknown",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "invalid_input",
+   "http_status": 400
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "unknown",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "invalid_input",
+   "http_status": 400
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "unknown",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "rate_limited",
+   "limit": "5 per 1 minute"
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "unknown",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "rate_limited",
+   "limit": "5 per 1 minute"
+  },
+  {
+   "timestamp": "2026-11-10T17:23:23+00:00",
+   "creator_id": "attacker_RQ12",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "invalid_input",
+   "http_status": 400
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "content_id": "174a606a34b44c73b28303f4e8705171",
+   "creator_id": "attacker_flood",
+   "guess": "human",
+   "model_score": 0.0287,
+   "style_score": 0.0,
+   "combined_score": 0.0143,
+   "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 55
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "content_id": "b145bcbc59de49a69d05c2128ca401fe",
+   "creator_id": "attacker_flood",
+   "guess": "human",
+   "model_score": 0.0287,
+   "style_score": 0.0,
+   "combined_score": 0.0143,
+   "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 55
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "content_id": "fd0051f0b7f14be18499b43182042d09",
+   "creator_id": "attacker_flood",
+   "guess": "human",
+   "model_score": 0.0287,
+   "style_score": 0.0,
+   "combined_score": 0.0143,
+   "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 55
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "content_id": "e4f93db2f8624b6c98c2c71bcb32eb59",
+   "creator_id": "attacker_flood",
+   "guess": "human",
+   "model_score": 0.0287,
+   "style_score": 0.0,
+   "combined_score": 0.0143,
+   "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 55
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "content_id": "d30751464cbc45b4b7b8c8a6c2da8e3a",
+   "creator_id": "attacker_flood",
+   "guess": "human",
+   "model_score": 0.0287,
+   "style_score": 0.0,
+   "combined_score": 0.0143,
+   "label": "We think this was written by a person. Our checks found the kind of variety and surprise that's typical of human writing.",
+   "status": "decided",
+   "scoring": {
+    "weights": [
+     0.5,
+     0.5
+    ],
+    "disagreement_gap": 0.35,
+    "thresholds": [
+     0.35,
+     0.7
+    ]
+   },
+   "text_length": 55
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "creator_id": "attacker_flood",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "rate_limited",
+   "limit": "5 per 1 minute"
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "creator_id": "attacker_flood",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "rate_limited",
+   "limit": "5 per 1 minute"
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "creator_id": "attacker_flood",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "rate_limited",
+   "limit": "5 per 1 minute"
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "creator_id": "attacker_flood",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "rate_limited",
+   "limit": "5 per 1 minute"
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "creator_id": "attacker_flood",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "rate_limited",
+   "limit": "5 per 1 minute"
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "creator_id": "attacker_flood",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "rate_limited",
+   "limit": "5 per 1 minute"
+  },
+  {
+   "timestamp": "2026-11-10T17:23:24+00:00",
+   "creator_id": "attacker_flood",
+   "event": "rejected",
+   "status": "rejected",
+   "reason": "rate_limited",
+   "limit": "5 per 1 minute"
+  }
+ ]
+}

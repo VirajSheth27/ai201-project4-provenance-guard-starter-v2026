@@ -963,22 +963,188 @@ side can tolerate.
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** one number. In `stylometry.py`, the punctuation measure's
+weight inside the style signal went from **0.3 to 0.0**
+(`MEASURE_WEIGHTS = {"spread": 0.5, "punct": 0.0, "ttr": 0.2}`). Punctuation is
+still computed and printed by `python stylometry.py`, but it no longer counts.
+`style_signal` already renormalises by the weights in use, so sentence-length
+spread and type-token ratio now carry 5/7 and 2/7 of signal two. Nothing else
+changed: same thresholds (0.35 / 0.70), same 50/50 combining weights, same
+disagreement rule, same inputs. `git diff` between the runs is that one line
+and its comment.
 
-**Which diagnosis pointed at it:**
+**Which diagnosis pointed at it:** pattern 4, both signals reading simplicity
+as machine-ness. It's the pattern that accuses real people (FP02–FP05, the four
+false positives), and my own rule from unit 7 says a wrong accusation is the
+expensive mistake. In the diagnosis I blamed punctuation's *anchor*, the
+"fully human" value of 0.15 marks per word set from two casual paragraphs.
+Before changing anything I simulated four candidate fixes locally on every
+input that matters. The simulation showed the anchor wasn't the real problem:
+
+| Candidate (simulated, nothing sent) | Real writers labelled AI (of 8) | AI label still reachable in my criteria? | Cost |
+|---|---|---|---|
+| As shipped | 4 | yes (3/5 and 2/3 AI texts called AI) | — |
+| Punctuation anchor 0.15 → 0.05 | **4, no help** | **no**: 0/5 and 0/3, criterion 3 would be MISSED | — |
+| **Punctuation weight 0.3 → 0.0** | **2** | **yes, unchanged** | 2 evasions and 1 injection reach "human" |
+| AI threshold 0.70 → 0.80 | 1 | **no**: criterion 3 MISSED | — |
+| AI threshold 0.70 → 0.75 | 3 | yes, but 2/5 and 1/3 | — |
+
+The reason the anchor fix does nothing: the base AI paragraph has **0.035**
+expressive marks per word, and the four accused writers have **0.000–0.029**.
+In formal writing, punctuation doesn't just sit at the wrong anchor. It points
+the wrong way: the AI text uses more of it than the humans do. Moving the anchor
+slides AI and human together. Removing the measure is the fix the data
+supports. Widening the unsure band (threshold 0.80) fixes more false positives
+but makes "AI" unreachable for my own clearly-AI texts, which is the trade the
+brief warns about taken all the way.
 
 ### Attack Run — After
 
 <!-- Same format. `run_attacks.py --label after` -->
 
+`python run_attacks.py --set attack_set --label after`, same service, same
+limits, server restarted first so the rate-limit counts started at zero.
+Full report: `results/attack_run_2026-11-10_1223_after.md`. The audit log for
+the run: `results/audit_extract_after.json`. Marked with **the same rules** as
+the before run (README → Attack Run — Before).
 
+| Family | Attacks | HELD before | BROKE before | HELD after | BROKE after |
+|---|---|---|---|---|---|
+| evasion | 10 | 1 | 9 | 0 | 10 |
+| false_positive | 8 | 4 | 4 | 6 | 2 |
+| prompt_injection | 6 | 5 | 1 | 4 | 2 |
+| malformed | 20 | 18 | 2 | 18 | 2 |
+| flood_same_creator | 12 | 12 | 0 | 12 | 0 |
+| **Total** | **56** | **40** | **16** | **40** | **16** |
+
+**The rows that changed** (everything else came back identical):
+
+| ID | Family | Before | After | Verdict |
+|---|---|---|---|---|
+| EV02 | evasion | unsure 0.436 | human 0.329 | BROKE → BROKE |
+| EV06 | evasion | unsure 0.444 | human 0.344 | BROKE → BROKE |
+| EV10 | evasion | ai 0.854 | unsure 0.690 | HELD → BROKE |
+| FP03 | false_positive | ai 0.756 | unsure 0.693 | BROKE → HELD |
+| FP04 | false_positive | ai 0.733 | unsure 0.675 | BROKE → HELD |
+| FP08 | false_positive | unsure 0.404 | human 0.294 | HELD → HELD |
+| PI01 | prompt_injection | unsure 0.388 | human 0.241 | HELD → BROKE |
+
+Every attack, before → after:
+
+| ID | Family | Status | Guess | Combined | Style | Verdict |
+|---|---|---|---|---|---|---|
+| EV01 | evasion | 200 → 200 | unsure → unsure | 0.445 → 0.436 | 0.726 → 0.709 | BROKE → **BROKE** |
+| EV02 | evasion | 200 → 200 | unsure → human | 0.436 → 0.329 | 0.279 → 0.064 | BROKE → **BROKE** ⟵ |
+| EV03 | evasion | 200 → 200 | unsure → unsure | 0.506 → 0.460 | 0.346 → 0.254 | BROKE → **BROKE** |
+| EV04 | evasion | 200 → 200 | unsure → unsure | 0.661 → 0.649 | 0.711 → 0.687 | BROKE → **BROKE** |
+| EV05 | evasion | 200 → 200 | human → human | 0.286 → 0.212 | 0.251 → 0.103 | BROKE → **BROKE** |
+| EV06 | evasion | 200 → 200 | unsure → human | 0.444 → 0.344 | 0.316 → 0.116 | BROKE → **BROKE** ⟵ |
+| EV07 | evasion | 200 → 200 | unsure → unsure | 0.377 → 0.502 | 0.167 → 0.418 | BROKE → **BROKE** |
+| EV08 | evasion | 200 → 200 | unsure → unsure | 0.449 → 0.374 | 0.652 → 0.503 | BROKE → **BROKE** |
+| EV09 | evasion | 200 → 200 | unsure → unsure | 0.537 → 0.467 | 0.370 → 0.229 | BROKE → **BROKE** |
+| EV10 | evasion | 200 → 200 | ai → unsure | 0.854 → 0.690 | 0.729 → 0.613 | HELD → **BROKE** ⟵ |
+| FP01 | false_positive | 200 → 200 | unsure → unsure | 0.576 → 0.504 | 0.534 → 0.390 | HELD → **HELD** |
+| FP02 | false_positive | 200 → 200 | ai → ai | 0.778 → 0.758 | 0.818 → 0.777 | BROKE → **BROKE** |
+| FP03 | false_positive | 200 → 200 | ai → unsure | 0.756 → 0.693 | 0.707 → 0.581 | BROKE → **HELD** ⟵ |
+| FP04 | false_positive | 200 → 200 | ai → unsure | 0.733 → 0.675 | 0.633 → 0.518 | BROKE → **HELD** ⟵ |
+| FP05 | false_positive | 200 → 200 | ai → ai | 0.801 → 0.799 | 0.802 → 0.799 | BROKE → **BROKE** |
+| FP06 | false_positive | 200 → 200 | unsure → unsure | 0.690 → 0.616 | 0.514 → 0.350 | HELD → **HELD** |
+| FP07 | false_positive | 200 → 200 | unsure → unsure | 0.657 → 0.584 | 0.432 → 0.286 | HELD → **HELD** |
+| FP08 | false_positive | 200 → 200 | unsure → human | 0.404 → 0.294 | 0.485 → 0.265 | HELD → **HELD** ⟵ |
+| PI01 | prompt_injection | 200 → 200 | unsure → human | 0.388 → 0.241 | 0.313 → 0.019 | HELD → **BROKE** ⟵ |
+| PI02 | prompt_injection | 200 → 200 | human → human | 0.208 → 0.102 | 0.211 → 0.000 | BROKE → **BROKE** |
+| PI03 | prompt_injection | 200 → 200 | unsure → unsure | 0.546 → 0.516 | 0.498 → 0.438 | HELD → **HELD** |
+| PI04 | prompt_injection | 200 → 200 | unsure → unsure | 0.470 → 0.463 | 0.441 → 0.425 | HELD → **HELD** |
+| PI05 | prompt_injection | 200 → 200 | unsure → unsure | 0.392 → 0.422 | 0.143 → 0.204 | HELD → **HELD** |
+| PI06 | prompt_injection | 200 → 200 | unsure → unsure | 0.552 → 0.480 | 0.546 → 0.403 | HELD → **HELD** |
+| MF01 | malformed | 400 → 400 | — → — | — → — | — → — | HELD → **HELD** |
+| MF02 | malformed | 422 → 422 | — → — | — → — | — → — | HELD → **HELD** |
+| MF03 | malformed | 422 → 422 | — → — | — → — | — → — | HELD → **HELD** |
+| MF04 | malformed | 200 → 200 | unsure → unsure | 0.506 → 0.506 | 1.000 → 1.000 | BROKE → **BROKE** |
+| MF05 | malformed | 422 → 422 | — → — | — → — | — → — | HELD → **HELD** |
+| MF06 | malformed | 422 → 422 | — → — | — → — | — → — | HELD → **HELD** |
+| MF07 | malformed | 200 → 200 | ai → ai | 0.953 → 0.953 | 1.000 → 1.000 | BROKE → **BROKE** |
+| MF08 | malformed | 413 → 413 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ01 | malformed | 400 → 400 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ02 | malformed | 400 → 400 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ03 | malformed | 400 → 400 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ04 | malformed | 400 → 400 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ05 | malformed | 400 → 400 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ06 | malformed | 400 → 400 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ07 | malformed | 400 → 400 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ08 | malformed | 400 → 400 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ09 | malformed | 400 → 400 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ10 | malformed | 429 → 429 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ11 | malformed | 429 → 429 | — → — | — → — | — → — | HELD → **HELD** |
+| RQ12 | malformed | 400 → 400 | — → — | — → — | — → — | HELD → **HELD** |
+| FL01_01 | flood_same_creator | 200 → 200 | human → human | 0.314 → 0.014 | 0.600 → 0.000 | HELD → **HELD** |
+| FL01_02 | flood_same_creator | 200 → 200 | human → human | 0.314 → 0.014 | 0.600 → 0.000 | HELD → **HELD** |
+| FL01_03 | flood_same_creator | 200 → 200 | human → human | 0.314 → 0.014 | 0.600 → 0.000 | HELD → **HELD** |
+| FL01_04 | flood_same_creator | 200 → 200 | human → human | 0.314 → 0.014 | 0.600 → 0.000 | HELD → **HELD** |
+| FL01_05 | flood_same_creator | 200 → 200 | human → human | 0.314 → 0.014 | 0.600 → 0.000 | HELD → **HELD** |
+| FL01_06 | flood_same_creator | 429 → 429 | — → — | — → — | — → — | HELD → **HELD** |
+| FL01_07 | flood_same_creator | 429 → 429 | — → — | — → — | — → — | HELD → **HELD** |
+| FL01_08 | flood_same_creator | 429 → 429 | — → — | — → — | — → — | HELD → **HELD** |
+| FL01_09 | flood_same_creator | 429 → 429 | — → — | — → — | — → — | HELD → **HELD** |
+| FL01_10 | flood_same_creator | 429 → 429 | — → — | — → — | — → — | HELD → **HELD** |
+| FL01_11 | flood_same_creator | 429 → 429 | — → — | — → — | — → — | HELD → **HELD** |
+| FL01_12 | flood_same_creator | 429 → 429 | — → — | — → — | — → — | HELD → **HELD** |
+
+**My five criteria, after** (`python run_eval.py --label after` and
+`python run_appeals.py --label after`, run straight after the attack run;
+`results/run_2026-11-10_1223_after.md`, `results/appeal_run_2026-11-10_1223_after.md`):
+
+| Criterion | Target | Before (×3) | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|---|
+| 1. Human writing labelled AI | ≤ 1 of 10 | 0/10 | 0/10 | 0/10 | 0/10 | MET |
+| 2. AI vs. human spread | gap ≥ 0.25 | 0.270 | 0.316 | 0.316 | 0.316 | MET |
+| 3. All three labels reachable | 3/3 and ≥ 2/3 borderline unsure | 3/3, 3/3 | 3/3, 3/3 | 3/3, 3/3 | 3/3, 3/3 | MET |
+| 4. Appeals recorded | 5/5 real, 2/2 fake | 5/5, 2/2 | 5/5, 2/2 | 5/5, 2/2 | 5/5, 2/2 | MET |
+| 5. Bad input refused and logged | 7/7 4xx, 0 × 500, 7/7 logged | 7/7, 0, 7/7 | 7/7, 0, 7/7 | 7/7, 0, 7/7 | 7/7, 0, 7/7 | MET |
+
+Criterion 2's gap widened from 0.270 to 0.316. Two of the five human excerpts
+now reach "human" (0.324, 0.306) instead of sitting in "unsure", and the AI
+mean rose (0.715 → 0.748), because removing punctuation removed the measure
+that made AI prose look human.
+
+**One measurement confound in criterion 5, not caused by the change.** The
+body with no `creator_id` came back **429**, not 400, in all three after-trials.
+It never reached my route. Requests without a creator_id are counted against
+the caller's IP. The attack run's creator-less rows had filled 127.0.0.1's
+five-a-minute bucket at 17:23:23, and the eval's bad-input scenario arrived at
+17:23:46, inside the same minute. In the before runs the two were 15 minutes
+apart. It's still a clean 4xx with `error` and `message`, logged, so the
+criterion is MET as written, but that one path of my route wasn't exercised
+in the after run.
 
 **Did it help, and how do I know:**
 
 <!-- Widening the unsure band usually fixes one problem and creates another.
      Reporting that trade honestly is worth full credit. -->
 
+**It helped the people it was aimed at and cost exactly what the simulation
+said it would. The headline count didn't move: 40 held and 16 broke, before
+and after.**
 
+- **Fewer accusations:** real writers labelled AI went from **4 of 8 to 2 of 8**.
+  FP03, the careful non-native writer and my worst outcome, went from "AI"
+  (0.756) to "unsure" (0.693). So did FP04, the rubric essay. FP08 (an 8-word
+  run diary) moved from unsure to human. Counting MF07, the Arabic text, wrong
+  accusations across the whole set went from 5 to 3.
+- **More AI getting through:** EV02 and EV06 (shape edits) and PI01 (an
+  instruction plus AI text) now reach "human", not just "unsure". **EV10, the
+  only evasion that held, now gets through as well** (0.854 → 0.690). Its
+  repeated stanzas had zero punctuation, which was the only thing still
+  marking it as AI to signal two. Evasion went from 9 to 10 broken, injection
+  from 1 to 2.
+- **Why it's still worth it, by my own rule:** I traded two false accusations
+  for one more evasion and one more injection, plus three AI texts moving from
+  "unsure" to "human". A writer accused of using AI pays more than a site that
+  misses some AI text. But the trade is real, and **FP02 (formal report) and
+  FP05 (documentation) are still accused**. Their sentence lengths are even and
+  their vocabulary is narrow, and the model signal reads them at 0.74 and 0.80.
+  Removing punctuation took signal two's false evidence away. It did nothing
+  about signal one's.
 
 ---
 

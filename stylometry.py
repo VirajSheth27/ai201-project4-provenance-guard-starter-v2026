@@ -142,7 +142,14 @@ ANCHORS = {
 
 # How much each measure counts. Spread separated the calibration texts best;
 # TTR barely separated them at all on paragraph-length text, so it counts least.
-MEASURE_WEIGHTS = {"spread": 0.5, "punct": 0.3, "ttr": 0.2}
+#
+# Unit 8, Milestone 5: punctuation 0.3 -> 0.0. The attack run showed it points
+# the wrong way on formal writing: the base AI paragraph has 0.035 marks per
+# word, while the four real writers it helped accuse (a formal report, a
+# non-native writer, a rubric essay, documentation) have 0.000–0.029. It's
+# still computed and printed, but no longer counts. style_signal renormalises,
+# so spread and TTR now carry 5/7 and 2/7.
+MEASURE_WEIGHTS = {"spread": 0.5, "punct": 0.0, "ttr": 0.2}
 
 
 def _ai_likeness(value: float, ai_end: float, human_end: float) -> float:
