@@ -1311,3 +1311,90 @@ because they wrote clearly.
 ---
 
 📖 **How to run this project: [RUNNING.md](RUNNING.md)**
+
+---
+
+## Capstone
+
+<!-- Unit 9. Everything below is the capstone; everything above is units 7–8. -->
+
+**What This Extends**
+
+Provenance Guard, the AI-writing detector from units 7–8 (Flask service, local
+GPT-2 perplexity signal + stylometry signal, `/submit`, `/appeal`, append-only
+`logs/audit.jsonl`, per-creator rate limiting). Until now it has only ever run
+as `python app.py` on Flask's development server, and nothing about it records
+how long a request takes or what one costs.
+
+What's new is the operational layer around it:
+
+- a single-command production start (`python serve.py`, on `waitress`, because
+  the `gunicorn` already in `requirements.txt` does not run on Windows);
+- a per-request structured log, `logs/requests.jsonl`, with one record for
+  every request (including 4xx, 429 and 500) holding the input fingerprint, the
+  output, total duration, a per-stage timing breakdown, CPU seconds, memory, and
+  whether the model was cold;
+- a measurement script that starts the service, sends a cold request, warm
+  requests and deliberate failures, and reports the cost of one run from the
+  log.
+
+**The Shape**
+
+**A — Deploy and instrument**, on **Path B (local with logs)**. The detector
+itself is unchanged: same two signals, same weights, same thresholds, same
+labels. What I'm adding is the ability to answer "how long did that take,
+where did the time go, and what did it cost?" about a running service after the
+fact, without adding code first. Inputs are logged as a hash, a character count
+and a word count, never as text, which keeps the unit 8 decision not to store
+anyone's writing.
+
+*Out of scope*, and decided on purpose:
+
+- **Hosting it.** torch + the GPT-2 weights need more than the 512 MB a free
+  tier gives (see Running It). I'm not shrinking the model to make it fit.
+- **Touching the detector.** No change to the signals, weights, thresholds or
+  label text, even though unit 8 left real false positives. Fixing them is a
+  different unit's work, and changing them here would mix "the service got
+  faster" with "the service decides differently".
+- **The no-scoreable-words guard (MF04/MF07) and a human review queue**, the
+  two fixes my unit 8 "What's Still Broken" called next. Each is its own
+  capability (shape B or C), not part of the operational layer.
+- **Changing `audit.jsonl`.** It stays the decision record. The new request log
+  sits beside it and joins it on `content_id`.
+
+*Stretch, declared before starting:* **a latency breakdown**, where the time
+in one request goes across validation, signal one, signal two, scoring and the
+audit write, measured from the per-stage timers.
+
+**Running It**
+
+Path B, local with logs. The start command, the environment it needs and the
+size of the model files are in [RUNNING.md → Capstone: Path B](RUNNING.md).
+Why not Path A, as arithmetic: torch takes about 200–800 MB depending on the
+build, and the GPT-2 weights are about 550 MB, loaded into RAM to score. A free
+tier is 512 MB. The service is over budget before the first request arrives,
+and a free host would download those 550 MB again after every idle spin-down.
+
+**Instrumentation**
+
+*(Milestone 3)*
+
+**What It Costs**
+
+*(Milestone 3 / 7)*
+
+**Run Log and Verdicts**
+
+*(Milestone 5 / 6)*
+
+**The Improvement**
+
+*(Milestone 6)*
+
+**What's Still Broken**
+
+*(Milestone 7)*
+
+**How I Used AI**
+
+*(Milestone 7)*
