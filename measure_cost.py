@@ -10,8 +10,8 @@ not a warm laptop session:
   1. Starts `python serve.py` as a fresh process on its own port (5055 unless
      --port), and times how long until /health answers.        -> startup
   2. Sends ONE /submit while the model isn't loaded yet.        -> cold
-  3. Sends --n more /submit (default 10), the ten "own writing" texts from
-     scenarios.py, each under its own creator_id.              -> warm
+  3. Sends --n more /submit (default 50), cycling through the ten "own
+     writing" texts from scenarios.py, each under its own creator_id. -> warm
   4. Sends deliberate failures: blank text (400), too-short text (422), a
      JSON array instead of an object (400), and a burst of 7 from one
      creator, which should end in 429s.                         -> bad path
@@ -19,7 +19,7 @@ not a warm laptop session:
      logs/requests.jsonl, and matches every request it sent to its record by
      the X-Request-ID header.
 
-Then it writes results/cost_<date>_<label>.md: latency (mean/p50/p95/max),
+Then it writes results/cost_<date>_<label>.md: latency (mean/p50/p95/p99/max),
 CPU seconds, memory, a per-stage breakdown, every failure's status, and how
 many of the requests it sent actually appear in the log.
 
@@ -75,6 +75,7 @@ def summarise(values):
         "mean": round(statistics.mean(values), 2),
         "p50": round(pct(values, 50), 2),
         "p95": round(pct(values, 95), 2),
+        "p99": round(pct(values, 99), 2),
         "max": round(max(values), 2),
         "min": round(min(values), 2),
     }
@@ -111,7 +112,7 @@ def start_server(port):
 
 # ── the run ───────────────────────────────────────────────────────────────────
 
-def run_once(label="", n=10, port=5055, url=None, quiet=False):
+def run_once(label="", n=50, port=5055, url=None, quiet=False):
     """
     One full measurement. Returns a dict with everything measured, including the
     raw log records, so run_capstone.py can call this three times.
@@ -190,6 +191,10 @@ def run_once(label="", n=10, port=5055, url=None, quiet=False):
                                  if r.get("stages_ms") and k in r["stages_ms"]])
                    for k in stage_names}
     warm_total = statistics.mean([r["duration_ms"] for r in warm]) if warm else None
+    warm_cpu_sum = round(sum(r["cpu_s"] for r in warm), 4)
+    stage_share = ({k: round(100 * v["mean"] / warm_total, 2)
+                    for k, v in warm_stages.items() if v.get("n")} if warm_total else {})
+    submit_records = [r for r in records if r.get("route") == "/submit"]
 
     result = {
         "label": label,
@@ -212,15 +217,20 @@ def run_once(label="", n=10, port=5055, url=None, quiet=False):
             "ok": f"{len(warm)}/{n}",
         },
         "stages_ms": warm_stages,
-        "stage_share": ({k: round(100 * v["mean"] / warm_total, 1)
-                         for k, v in warm_stages.items() if v.get("n")}
-                        if warm_total else {}),
-        "peak_rss_mb": max((r["rss_mb"] or 0) for r in records) if records else None,
+        "stage_share": stage_share,
+        "stage_share_total": round(sum(stage_share.values()), 2) if stage_share else None,
+        "warm_cpu": {"sum_s": warm_cpu_sum, "n": len(warm),
+                     "mean_s": round(warm_cpu_sum / len(warm), 4) if warm else None},
+        # Everything this script sends goes to /submit; /health readiness polls
+        # are sent by start_server() and are not counted here.
+        "submit_sent": sum(1 for s in sent),
+        "submit_logged": sum(1 for s in sent if s["record"]),
+        "submit_records_in_log": len(submit_records),
+        "any_500": any(isinstance(s["status"], int) and s["status"] >= 500 for s in sent),
+        "peak_rss_mb": max((r["rss_mb"] or 0) for r in submit_records) if submit_records else None,
         "bad_path": [{"phase": s["phase"], "expected": s["expected"], "status": s["status"],
                       "logged_outcome": (s["record"] or {}).get("outcome")}
                      for s in sent if s["phase"] in ("blank", "short", "array", "flood")],
-        "sent": len(sent),
-        "logged": sum(1 for s in sent if s["record"]),
         "records": records,
         "sent_detail": [{k: v for k, v in s.items() if k != "record"} for s in sent],
     }
@@ -246,14 +256,18 @@ def to_markdown(r):
         f"model stage {c['model_signal_ms']} ms |",
         f"| Warm /submit, server-side duration | mean {w['duration_ms'].get('mean')} ms, "
         f"p50 {w['duration_ms'].get('p50')}, p95 {w['duration_ms'].get('p95')}, "
-        f"max {w['duration_ms'].get('max')} (n={w['duration_ms'].get('n')}) |",
+        f"p99 {w['duration_ms'].get('p99')}, max {w['duration_ms'].get('max')} "
+        f"(n={w['duration_ms'].get('n')}) |",
         f"| Warm /submit, client round trip | mean {w['client_ms'].get('mean')} ms, "
         f"p95 {w['client_ms'].get('p95')} |",
-        f"| **Warm CPU seconds per run** | **mean {w['cpu_s'].get('mean')} s** "
+        f"| **Warm CPU per request** | **{r['warm_cpu']['sum_s']} core-s over "
+        f"{r['warm_cpu']['n']} warm records = {r['warm_cpu']['mean_s']} core-s each** "
         f"(min {w['cpu_s'].get('min')}, max {w['cpu_s'].get('max')}) |",
-        f"| Peak resident memory | {r['peak_rss_mb']} MB |",
+        f"| Highest memory after any /submit | {r['peak_rss_mb']} MB |",
         f"| Warm submissions that returned 200 | {w['ok']} |",
-        f"| Requests sent / found in requests.jsonl | {r['sent']} / {r['logged']} |",
+        f"| /submit requests sent / matched in requests.jsonl | {r['submit_sent']} / {r['submit_logged']} "
+        f"({r['submit_records_in_log']} /submit records written this run) |",
+        f"| Any HTTP 5xx | {r['any_500']} |",
         "",
         "## Where the time goes (warm, mean ms)",
         "",
@@ -263,6 +277,7 @@ def to_markdown(r):
     for k, v in r["stages_ms"].items():
         if v.get("n"):
             lines.append(f"| {k} | {v['mean']} | {v['p95']} | {r['stage_share'].get(k)}% |")
+    lines.append(f"| **total of stage shares** | | | **{r['stage_share_total']}%** |")
     lines += ["", "## Bad path", "", "| Request | Expected | Got | Logged outcome |",
               "|---|---|---|---|"]
     for b in r["bad_path"]:
@@ -279,7 +294,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--label", default="")
-    p.add_argument("--n", type=int, default=10, help="warm submissions (default 10)")
+    p.add_argument("--n", type=int, default=50, help="warm submissions (default 50)")
     p.add_argument("--port", type=int, default=5055)
     p.add_argument("--url", default=None, help="use a running server instead of starting one")
     args = p.parse_args()
@@ -294,8 +309,8 @@ def main():
     print()
     print(f"startup {r['startup_s']} s | cold {r['cold']['duration_ms']} ms | "
           f"warm mean {w['duration_ms'].get('mean')} ms p95 {w['duration_ms'].get('p95')} | "
-          f"warm CPU {w['cpu_s'].get('mean')} s | peak RSS {r['peak_rss_mb']} MB | "
-          f"logged {r['logged']}/{r['sent']}")
+          f"warm CPU {r['warm_cpu']['mean_s']} s | peak RSS {r['peak_rss_mb']} MB | "
+          f"logged {r['submit_logged']}/{r['submit_sent']}")
     print(f"wrote {out.relative_to(ROOT)}")
 
 
