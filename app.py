@@ -24,17 +24,112 @@ Routes:
     GET  /health      is the service up, and is the model loaded
 """
 
+import time
 import uuid
 
-from flask import Flask, jsonify, request
+from flask import Flask, g, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 import audit
 import config
 import detector
 import scoring
 import stylometry
+import telemetry
 
 app = Flask(__name__)
+
+
+# ── Request telemetry — CAPSTONE (unit 9) ─────────────────────────────────────
+# Every request, on every route, leaves one record in logs/requests.jsonl:
+# what came in (a fingerprint, never the text), what went out, how long it took
+# in total and per stage, CPU seconds, memory, and whether the model was cold.
+#
+# ⚠️ These hooks are registered BEFORE the rate limiter on purpose. Flask runs
+# before_request hooks in the order they were registered, and Flask-Limiter's
+# 429 check is one of them. Register ours after it and a rate-limited request
+# never starts our clock, so the requests we most want to see go unmeasured.
+
+@app.before_request
+def _telemetry_start():
+    g.t0 = time.perf_counter()
+    g.cpu0 = time.process_time()
+    g.request_id = uuid.uuid4().hex[:12]
+    g.cold = detector._model is None   # will this request pay the model load?
+    g.stages = {}
+    g.input = None
+    g.content_id = None
+    # Who the request *claims* to be, read now so a request the rate limiter
+    # stops (before any route runs) still says whose it was. The route
+    # overwrites it once it has validated the field.
+    payload = request.get_json(silent=True) if request.method == "POST" else None
+    claimed = payload.get("creator_id") if isinstance(payload, dict) else None
+    g.creator_id = claimed if isinstance(claimed, str) and claimed.strip() else None
+
+
+@app.after_request
+def _telemetry_finish(response):
+    t0 = getattr(g, "t0", None)
+    status = response.status_code
+    if status == 429:
+        outcome = "rate_limited"
+    elif status >= 500:
+        outcome = "error"
+    elif status >= 400:
+        outcome = "rejected"
+    else:
+        outcome = "ok"
+
+    output = None
+    if request.method == "POST" and response.is_json:
+        body = response.get_json(silent=True) or {}
+        if "error" in body:
+            output = {"error": body.get("error")}
+        elif request.path == "/submit":
+            output = {k: body.get(k) for k in
+                      ("guess", "confidence", "model_score", "style_score")}
+        elif request.path == "/appeal":
+            output = {"status": body.get("status")}
+
+    try:
+        telemetry.log_request({
+            "timestamp": telemetry.now_iso(),
+            "request_id": getattr(g, "request_id", None),
+            "route": request.path,
+            "method": request.method,
+            "http_status": status,
+            "outcome": outcome,
+            "creator_id": getattr(g, "creator_id", None),
+            "content_id": getattr(g, "content_id", None),
+            "input": getattr(g, "input", None),
+            "output": output,
+            "duration_ms": round((time.perf_counter() - t0) * 1000, 2) if t0 else None,
+            "stages_ms": getattr(g, "stages", None) or None,
+            "cold": getattr(g, "cold", None),
+            "cpu_s": round(time.process_time() - g.cpu0, 4) if hasattr(g, "cpu0") else None,
+            "rss_mb": telemetry.rss_mb(),
+            **({"exception": g.exception} if hasattr(g, "exception") else {}),
+        })
+    except Exception:  # noqa: BLE001 — a logging failure must never fail the request
+        app.logger.exception("request telemetry failed")
+    return response
+
+
+@app.errorhandler(Exception)
+def _unhandled(exc):
+    """
+    A crash still answers in JSON and still leaves a record.
+
+    HTTP errors (404, 405, 429…) pass straight through to their own handling;
+    this is only for exceptions nobody planned for.
+    """
+    if isinstance(exc, HTTPException):
+        return exc
+    g.exception = f"{type(exc).__name__}: {exc}"[:300]
+    app.logger.exception("unhandled error")
+    return jsonify({"error": "internal_error",
+                    "message": "Something went wrong on our side. It has been logged.",
+                    "request_id": getattr(g, "request_id", None)}), 500
 
 
 # ── Rate limiting — UNIT 8 ────────────────────────────────────────────────────
@@ -202,63 +297,76 @@ def submit():
     what should this do when `text` is missing, empty, or enormous? A crash on
     a malformed input is one of the most common real failures there is.
     """
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        return _reject("unknown", 400, "invalid_input",
-                       "Send a JSON object with 'text' and 'creator_id'.")
+    # Capstone: each stage below is timed into g.stages (milliseconds) and the
+    # request log records them. The logic inside each stage is unchanged.
+    stages = g.stages
 
-    creator_id = payload.get("creator_id")
-    if not isinstance(creator_id, str) or not creator_id.strip():
-        return _reject("unknown", 400, "invalid_input",
-                       "'creator_id' is required and must be a non-empty string.")
+    with telemetry.stage("validate", stages):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return _reject("unknown", 400, "invalid_input",
+                           "Send a JSON object with 'text' and 'creator_id'.")
 
-    text = payload.get("text")
-    if not isinstance(text, str) or not text.strip():
-        return _reject(creator_id, 400, "invalid_input",
-                       "'text' is required and must be a non-empty string.")
-    if len(text) > config.MAX_TEXT_CHARS:
-        return _reject(creator_id, 413, "too_long",
-                       f"'text' is {len(text):,} characters; the limit is "
-                       f"{config.MAX_TEXT_CHARS:,}.", text_length=len(text))
-    if len(text.split()) < config.MIN_TEXT_WORDS:
-        return _reject(creator_id, 422, "too_short",
-                       f"'text' needs at least {config.MIN_TEXT_WORDS} words to "
-                       f"say anything about it.", text_length=len(text))
+        creator_id = payload.get("creator_id")
+        text = payload.get("text")
+        g.input = telemetry.input_fingerprint(text)
+        if not isinstance(creator_id, str) or not creator_id.strip():
+            return _reject("unknown", 400, "invalid_input",
+                           "'creator_id' is required and must be a non-empty string.")
+        g.creator_id = creator_id
+
+        if not isinstance(text, str) or not text.strip():
+            return _reject(creator_id, 400, "invalid_input",
+                           "'text' is required and must be a non-empty string.")
+        if len(text) > config.MAX_TEXT_CHARS:
+            return _reject(creator_id, 413, "too_long",
+                           f"'text' is {len(text):,} characters; the limit is "
+                           f"{config.MAX_TEXT_CHARS:,}.", text_length=len(text))
+        if len(text.split()) < config.MIN_TEXT_WORDS:
+            return _reject(creator_id, 422, "too_short",
+                           f"'text' needs at least {config.MIN_TEXT_WORDS} words to "
+                           f"say anything about it.", text_length=len(text))
 
     content_id = uuid.uuid4().hex
 
-    try:
-        model_score = detector.model_signal(text)
-    except detector.DetectorUnavailable as exc:
-        return _reject(creator_id, 503, "detector_unavailable", str(exc))
-    except ValueError as exc:
-        # The tokenizer can still find too few tokens in odd input.
-        return _reject(creator_id, 422, "too_short", str(exc))
+    # Signal one. On a cold process this stage also includes loading GPT-2.
+    with telemetry.stage("model_signal", stages):
+        try:
+            model_score = detector.model_signal(text)
+        except detector.DetectorUnavailable as exc:
+            return _reject(creator_id, 503, "detector_unavailable", str(exc))
+        except ValueError as exc:
+            # The tokenizer can still find too few tokens in odd input.
+            return _reject(creator_id, 422, "too_short", str(exc))
 
-    style_score = stylometry.style_signal(text)
-    confidence = scoring.combine_signals(model_score, style_score)
+    with telemetry.stage("style_signal", stages):
+        style_score = stylometry.style_signal(text)
 
-    guess, label = scoring.score_to_label(confidence)
+    with telemetry.stage("score_label", stages):
+        confidence = scoring.combine_signals(model_score, style_score)
+        guess, label = scoring.score_to_label(confidence)
 
-    audit.log_decision(
-        content_id=content_id,
-        creator_id=creator_id,
-        guess=guess,
-        model_score=model_score,
-        style_score=style_score,
-        combined_score=confidence,
-        label=label,
-        status="decided",
-        # The settings that turned these scores into this label. Without them
-        # an entry from before a threshold change and one from after look
-        # identical, and the decision can't be reconstructed from the log.
-        scoring={
-            "weights": [config.WEIGHT_MODEL_SIGNAL, config.WEIGHT_STYLE_SIGNAL],
-            "disagreement_gap": config.DISAGREEMENT_GAP,
-            "thresholds": [config.HUMAN_THRESHOLD, config.AI_THRESHOLD],
-        },
-        text_length=len(text),
-    )
+    with telemetry.stage("audit_write", stages):
+        audit.log_decision(
+            content_id=content_id,
+            creator_id=creator_id,
+            guess=guess,
+            model_score=model_score,
+            style_score=style_score,
+            combined_score=confidence,
+            label=label,
+            status="decided",
+            # The settings that turned these scores into this label. Without them
+            # an entry from before a threshold change and one from after look
+            # identical, and the decision can't be reconstructed from the log.
+            scoring={
+                "weights": [config.WEIGHT_MODEL_SIGNAL, config.WEIGHT_STYLE_SIGNAL],
+                "disagreement_gap": config.DISAGREEMENT_GAP,
+                "thresholds": [config.HUMAN_THRESHOLD, config.AI_THRESHOLD],
+            },
+            text_length=len(text),
+        )
+    g.content_id = content_id
 
     return jsonify({
         "content_id": content_id,
@@ -316,6 +424,7 @@ def appeal():
                        "'content_id' is required and must be a non-empty string.",
                        route="appeal")
     content_id = content_id.strip()
+    g.content_id = content_id
     if not isinstance(reasoning, str) or not reasoning.strip():
         return _reject("unknown", 400, "invalid_input",
                        "'reasoning' is required and must be a non-empty string.",
@@ -331,6 +440,7 @@ def appeal():
                        f"matches the one you got back from /submit.",
                        route="appeal", attempted_content_id=content_id)
 
+    g.creator_id = decisions[0]["creator_id"]
     entry = audit.log_appeal(
         content_id=content_id,
         creator_id=decisions[0]["creator_id"],

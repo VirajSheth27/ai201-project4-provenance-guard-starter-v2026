@@ -132,4 +132,7 @@ RATE_LIMIT_STORAGE = "memory://"
 
 LOG_DIR = ROOT / "logs"
 AUDIT_LOG = LOG_DIR / "audit.jsonl"
+# Capstone: one record per request — timings, cost, outcome. Joins audit.jsonl
+# on content_id. See telemetry.py.
+REQUEST_LOG = LOG_DIR / "requests.jsonl"
 RESULTS_DIR = ROOT / "results"

@@ -20,7 +20,16 @@ torch>=2.2,<3.0
 
 # A real server for the service — UNIT 9. Unused before then; Flask's built-in
 # server prints "development server" at you because it means it.
+# gunicorn is Linux/macOS only (it needs fork()); it installs on Windows but
+# won't start. Kept for anyone running on a Unix host.
 gunicorn>=21.2,<24.0
+
+# Capstone (unit 9): the production server `python serve.py` uses. Pure Python,
+# runs the same on Windows, macOS and Linux.
+waitress>=3.0,<4.0
+
+# Capstone (unit 9): process memory (RSS) in every request-log record.
+psutil>=5.9,<8.0
 
 # The CA bundle every HTTPS call above verifies against. It arrives as a
 # transitive dependency, so it is pinned forward here to stop a cached older
