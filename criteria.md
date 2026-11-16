@@ -149,3 +149,71 @@ request at all.
      A number you missed stays where it is, gets diagnosed, and gets a fix
      attempted. That's where the points are.
      ───────────────────────────────────────────────────────────────────────── -->
+
+---
+
+<!-- ═══════════════════════ UNIT 9 — CAPSTONE ═══════════════════════
+     Written before any capstone results. The five criteria above are units
+     7–8 and stay as they were. -->
+
+## Capstone criteria
+
+### 1. Warm requests meet a defined latency target
+
+Across **50 warm requests** measured using `measure_cost.py`, the service must report P50, P95 and P99 latency, with **P95 warm-request latency at or below 2 seconds** in each of **3 independent runs**. Cold-start time must be measured separately and remain **at or below 20 seconds** in each run. The report must clearly distinguish cold-start time from warm-request latency.
+
+**Why this target:** The measured warm P95 is approximately 0.32 seconds. A 2-second ceiling allows for variation while still ensuring that a writer does not have to wait excessively for a label. I chose 2 seconds rather than 10 because a five- to sixfold slowdown is already a meaningful deterioration in the experience of waiting for feedback. The 20-second cold-start ceiling is based on the observed cold-start measurements of 7.1 and 18.6 seconds, so it allows for the slower observed startup without making the target trivial.
+
+---
+
+### 2. Every submitted request is recorded in the request log
+
+For each complete measurement run, **100% of the `/submit` requests sent by the measurement scripts must have a corresponding record in `requests.jsonl`**. The number of `/submit` log records must equal the number of `/submit` requests sent, including successful, failed, and rejected requests. For the standard run consisting of 1 cold-start request, 50 warm requests, 3 bad-input requests and 7 rate-limit burst requests, the expected result is **61/61 logged `/submit` requests in each of 3 runs**. Readiness checks made using `GET /health` are excluded from this count.
+
+**Why this target:** A request that fails still matters: without a log entry, it becomes difficult to distinguish a service failure from a request that was never received. Matching the `/submit` request count against the corresponding log records provides an objective completeness check. I chose 100% because even one missing record makes the cost and reliability measurements incomplete.
+
+---
+
+### 3. Resource consumption stays within a defined operating range
+
+During each run of **50 warm requests**:
+
+- The highest memory reading recorded after any individual request must remain at or below **1,200 MB**.
+- Mean CPU consumption must remain at or below **3.5 core-seconds per warm request**, calculated as the **sum of `cpu_s` across the 50 warm-request records divided by 50**. Cold-start, readiness-check, bad-input and burst-request records are excluded.
+- The reported processing-stage time shares must add up to between **99% and 101%**.
+
+All three conditions must hold in each of **3 runs**. Peak memory, the warm-request CPU calculation, and individual stage shares must be included in the report.
+
+**Why this target:** The current peak memory measurement is approximately 1,088 MB, largely because of the GPT-2 model weights. Since reducing the model size is outside the scope of this project, I chose 1,200 MB as a regression ceiling rather than an unrealistic 512 MB deployment target. The current mean CPU consumption is approximately 2.83 core-seconds per warm request, so 3.5 provides some headroom while still making substantial increases visible. I calculate CPU from the 50 warm records only because cold-start model loading and accepted burst requests have different costs and should not distort the measurement of an ordinary warm request. The stage-share tolerance checks that the measured stages account for almost all processing time; the current result is approximately 99.4%.
+
+---
+
+### 4. Invalid and rate-limited requests are rejected correctly and recorded
+
+Test the following four bad-input and rate-limiting cases:
+
+- Blank input: HTTP **400**.
+- Input below the minimum permitted text length: HTTP **422**.
+- A JSON array where a JSON object is expected: HTTP **400**.
+- A rate-limit burst of **7 requests**, where the first 5 receive HTTP **200** and the next 2 receive HTTP **429**.
+
+Every case must produce its expected HTTP status, **no request may return HTTP 500**, and every rejected request must have a corresponding `requests.jsonl` record with the correct rejection outcome. This must hold in each of **3 runs**.
+
+**Why this target:** A malformed request should be rejected deliberately rather than causing an internal server error. The rate-limit case also checks that the service handles excessive traffic without accepting requests it should reject. Logging rejected requests matters because otherwise there is no reliable record of failed or abusive requests. I chose explicit inputs and status codes so the result can be checked directly rather than judged by whether the service appears to handle bad input gracefully.
+
+---
+
+### 5. A fresh checkout can reproduce a working service
+
+Perform the setup independently using **3 fresh clones** of the repository, each in a separate new folder with its own newly created Python virtual environment. Existing pip and Hugging Face model caches on the machine may be reused, but no project-specific generated files or previously configured virtual environments may be copied between clones.
+
+In each clone, follow `RUNNING.md`. A clone passes only if:
+
+1. The documented setup completes successfully.
+2. `test.py` completes with all tests passing.
+3. The service starts and `GET /health` returns HTTP **200**.
+4. A valid request to `/submit` returns HTTP **200**, includes a `guess` field in its JSON response, and produces a corresponding request-log entry.
+
+The target is **3 successful setups out of 3 attempts**.
+
+**Why this target:** A service that only works in its original development environment is not reproducible or reliably deployable. This criterion checks whether the documented setup works from a new project folder and isolated virtual environment, rather than depending on project-specific local files or an old environment. I allow shared package and model caches because clearing those caches is not part of this project's intended test. This is particularly important because the previous milestone exposed a fresh-environment compatibility issue involving Python 3.14, where 8 tests passed and 1 failed.
