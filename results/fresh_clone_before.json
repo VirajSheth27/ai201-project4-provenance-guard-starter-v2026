@@ -1,0 +1,148 @@
+{
+ "label": "before",
+ "when": "2026-11-15T22:47:45",
+ "clones": [
+  {
+   "n": 1,
+   "passed": true,
+   "summary": "8/8 steps",
+   "steps": [
+    {
+     "step": "git clone",
+     "ok": true,
+     "detail": "HEAD bca6742, 0.2s"
+    },
+    {
+     "step": "venv",
+     "ok": true,
+     "detail": "py -3.13 -m venv .venv, 10.5s"
+    },
+    {
+     "step": "python ver",
+     "ok": true,
+     "detail": "Python 3.13.15"
+    },
+    {
+     "step": "pip install",
+     "ok": true,
+     "detail": "exit 0, 260.1s"
+    },
+    {
+     "step": "detector.py",
+     "ok": true,
+     "detail": "model_signal   0.8864   (higher = more likely AI) (12.9s)"
+    },
+    {
+     "step": "test.py",
+     "ok": true,
+     "detail": "9 passed, 0 failed, 0 to look at, 0 skipped"
+    },
+    {
+     "step": "GET /health",
+     "ok": true,
+     "detail": "HTTP 200"
+    },
+    {
+     "step": "POST /submit",
+     "ok": true,
+     "detail": "HTTP 200, guess=human, request_id 3a909e22369e found in clone's requests.jsonl"
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "passed": true,
+   "summary": "8/8 steps",
+   "steps": [
+    {
+     "step": "git clone",
+     "ok": true,
+     "detail": "HEAD bca6742, 0.2s"
+    },
+    {
+     "step": "venv",
+     "ok": true,
+     "detail": "py -3.13 -m venv .venv, 11.6s"
+    },
+    {
+     "step": "python ver",
+     "ok": true,
+     "detail": "Python 3.13.15"
+    },
+    {
+     "step": "pip install",
+     "ok": true,
+     "detail": "exit 0, 262.1s"
+    },
+    {
+     "step": "detector.py",
+     "ok": true,
+     "detail": "model_signal   0.8864   (higher = more likely AI) (13.0s)"
+    },
+    {
+     "step": "test.py",
+     "ok": true,
+     "detail": "9 passed, 0 failed, 0 to look at, 0 skipped"
+    },
+    {
+     "step": "GET /health",
+     "ok": true,
+     "detail": "HTTP 200"
+    },
+    {
+     "step": "POST /submit",
+     "ok": true,
+     "detail": "HTTP 200, guess=human, request_id 78d2a1fda9fd found in clone's requests.jsonl"
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "passed": true,
+   "summary": "8/8 steps",
+   "steps": [
+    {
+     "step": "git clone",
+     "ok": true,
+     "detail": "HEAD bca6742, 0.2s"
+    },
+    {
+     "step": "venv",
+     "ok": true,
+     "detail": "py -3.13 -m venv .venv, 12.1s"
+    },
+    {
+     "step": "python ver",
+     "ok": true,
+     "detail": "Python 3.13.15"
+    },
+    {
+     "step": "pip install",
+     "ok": true,
+     "detail": "exit 0, 262.9s"
+    },
+    {
+     "step": "detector.py",
+     "ok": true,
+     "detail": "model_signal   0.8864   (higher = more likely AI) (12.7s)"
+    },
+    {
+     "step": "test.py",
+     "ok": true,
+     "detail": "9 passed, 0 failed, 0 to look at, 0 skipped"
+    },
+    {
+     "step": "GET /health",
+     "ok": true,
+     "detail": "HTTP 200"
+    },
+    {
+     "step": "POST /submit",
+     "ok": true,
+     "detail": "HTTP 200, guess=human, request_id b027632d6fd2 found in clone's requests.jsonl"
+    }
+   ]
+  }
+ ],
+ "rescored": "2026-11-15T22:50:15"
+}

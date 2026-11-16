@@ -154,33 +154,66 @@ def main():
     p.add_argument("--clones", type=int, default=3)
     p.add_argument("--port", type=int, default=5081)
     p.add_argument("--keep", action="store_true")
+    p.add_argument("--rescore", action="store_true",
+                   help="re-judge the saved results/fresh_clone_<label>.json; runs nothing")
     args = p.parse_args()
+
+    if args.rescore:
+        path = config.RESULTS_DIR / f"fresh_clone_{args.label}.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["clones"] = [judge(c) for c in data["clones"]]
+        data["rescored"] = dt.datetime.now().isoformat(timespec="seconds")
+        write(data, args.label)
+        return
 
     clones = []
     for n in range(1, args.clones + 1):
         print(f"\n=== clone {n}/{args.clones} ===")
         t0 = time.perf_counter()
         steps = check_one(n, args.label, args.port + n, args.keep)
-        passed = len(steps) == 9 and all(s["ok"] for s in steps)
-        failed = next((s["step"] for s in steps if not s["ok"]), None)
-        summary = (f"9/9 steps, {round(time.perf_counter() - t0)} s" if passed
-                   else f"failed at {failed}")
-        clones.append({"n": n, "passed": passed, "summary": summary, "steps": steps})
+        clones.append(judge({"n": n, "steps": steps, "seconds": round(time.perf_counter() - t0)}))
 
     config.RESULTS_DIR.mkdir(exist_ok=True)
     data = {"label": args.label, "when": dt.datetime.now().isoformat(timespec="seconds"),
             "clones": clones}
-    (config.RESULTS_DIR / f"fresh_clone_{args.label}.json").write_text(
+    write(data, args.label)
+
+
+STEPS = ["git clone", "venv", "python ver", "pip install", "detector.py",
+         "test.py", "GET /health", "POST /submit"]
+
+
+def judge(c):
+    """
+    A clone passes only if all 8 steps ran, in order, and every one was ok.
+
+    (The first version of this compared against 9 steps — a miscount on my
+    part — and scored three fully successful clones as failures. `--rescore`
+    re-judges a saved run with this rule without re-running anything.)
+    """
+    steps = c["steps"]
+    passed = [s["step"] for s in steps] == STEPS and all(s["ok"] for s in steps)
+    failed = next((s["step"] for s in steps if not s["ok"]), None)
+    c["passed"] = passed
+    c["summary"] = (f"{len(STEPS)}/{len(STEPS)} steps" + (f", {c['seconds']} s" if c.get("seconds") else "")
+                    if passed else f"failed at {failed or 'missing steps'}")
+    return c
+
+
+def write(data, label):
+    (config.RESULTS_DIR / f"fresh_clone_{label}.json").write_text(
         json.dumps(data, indent=1), encoding="utf-8")
-    md = [f"# Fresh-clone check — {args.label}", "", f"{data['when']}, "
-          f"`python fresh_clone_check.py --label {args.label}`", "", "```"]
+    clones = data["clones"]
+    md = [f"# Fresh-clone check — {label}", "", f"{data['when']}, "
+          f"`python fresh_clone_check.py --label {label}`"
+          + (f" (re-scored {data['rescored']})" if data.get("rescored") else ""), "", "```"]
     for c in clones:
         md.append(f"clone {c['n']}: {'PASS' if c['passed'] else 'FAIL'}: {c['summary']}")
         md += [f"   {s['step']:<14} {'ok ' if s['ok'] else 'FAIL'} {s['detail']}" for s in c["steps"]]
     md += ["```", ""]
-    (config.RESULTS_DIR / f"fresh_clone_{args.label}.md").write_text("\n".join(md), encoding="utf-8")
+    (config.RESULTS_DIR / f"fresh_clone_{label}.md").write_text("\n".join(md), encoding="utf-8")
     print(f"\n{sum(c['passed'] for c in clones)}/{len(clones)} clones passed; "
-          f"wrote results/fresh_clone_{args.label}.json")
+          f"wrote results/fresh_clone_{label}.json")
 
 
 if __name__ == "__main__":

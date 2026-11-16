@@ -1508,7 +1508,145 @@ That memory, not the CPU, is what rules out a 512 MB free host.
 
 **Run Log and Verdicts**
 
-*(Milestone 5 / 6)*
+*Order of work, from `git log`:* the criteria went in at `9c1a441` (22:27,
+message "Milestone 3 and 4 complete", only `criteria.md`). The harness that
+measures them went in at `bca6742` ("Milestone 5 complete"). Every result below
+was produced after that. The criteria commit's message doesn't say "criteria".
+I'm noting that here rather than rewriting history.
+
+*How it was run.* `python run_capstone.py --label before` ran three trials
+back to back, changing nothing between them. Each trial is
+`measure_cost.py::run_once`. It starts a **fresh** `serve.py` process, so the
+cold request really is cold, and sends to `/submit`:
+- 1 cold request
+- 50 warm requests (the ten "own writing" texts × 5, each under its own creator_id)
+- blank text, too-short text and a JSON array
+- a 7-request burst from one creator
+
+It then matches every request to its `requests.jsonl` record by `X-Request-ID`.
+`run_capstone.py::score` judges criteria 1–4 against the numbers in
+`criteria.md`. Criterion 5 is `python fresh_clone_check.py --label before`:
+three fresh clones of the committed HEAD (`bca6742`), each in a new temp folder
+with a new Python 3.13 venv. Full report: `results/capstone_before.md`; raw
+numbers: `results/capstone_before.json`; clones: `results/fresh_clone_before.md`.
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| 1. Warm P95 ≤ 2 s, cold ≤ 20 s (50 warm) | p95 ≤ 2000 ms and cold ≤ 20 s, every run | ✔ p95 382.21 ms, cold 10.7 s | ✔ p95 329.99 ms, cold 7.5 s | ✔ p95 325.95 ms, cold 6.5 s | **MET** |
+| 2. Every /submit request logged | 61/61, every run | ✔ 61/61 | ✔ 61/61 | ✔ 61/61 | **MET** |
+| 3. Memory ≤ 1200 MB, warm CPU ≤ 3.5 core-s, stage shares 99–101 % | all three, every run | ✔ 969.6 MB, 2.7984 core-s, 99.45% | ✔ 1141.4 MB, 2.6987 core-s, 99.4% | ✔ 1141.8 MB, 2.7231 core-s, 99.42% | **MET** |
+| 4. Bad input + burst: right codes, no 5xx, logged | 4/4 cases, no 5xx, every run | ✔ 4/4 | ✔ 4/4 | ✔ 4/4 | **MET** |
+| 5. Fresh clone sets up and serves | 3 of 3 clones | ✔ 8/8 steps | ✔ 8/8 steps | ✔ 8/8 steps | **MET** (3/3) |
+
+Every cell is the number the criterion names, from that run. Criterion 1 is
+warm P95 and cold start. Criterion 3 is the highest memory after any
+`/submit`, then the warm CPU mean, then the total of the stage shares.
+
+**All five MET, in all three runs.** Whether that means the targets were too
+low is in The Improvement below.
+
+*A correction I made to my own harness, not to a criterion.* The first scoring
+of criterion 5 said **0/3**, but every clone had passed every step. My check in
+`fresh_clone_check.py::main` compared against **9** steps, and there are **8**
+(I miscounted when I wrote it). I fixed the rule in
+`fresh_clone_check.py::judge` and re-judged the saved step results with
+`--rescore`, without re-running the clones. The first scoring is kept as
+`results/fresh_clone_before_as_first_scored.json`. The criterion and its target
+didn't change, only the code counting the steps.
+
+*Real output, Run 1 unless noted.* The records are written by
+`app.py::_telemetry_finish` → `telemetry.py::log_request` to
+`logs/requests.jsonl`. They are sent and matched by `measure_cost.py::run_once`.
+
+**Criterion 1.** The cold request (10.7 s, almost all of it `model_signal`
+loading GPT-2), then the slowest of the 50 warm requests (612 ms, the 531-word
+text). Warm in Run 1: p50 191 ms, p95 382 ms, p99 612 ms. With 50 samples the
+nearest-rank p99 *is* the slowest request.
+
+```json
+{"timestamp": "2026-11-16T03:31:51.481+00:00", "request_id": "cfff19f71390", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115223139_cold", "content_id": "bd81ddcab902485dae05382fe3657895", "input": {"sha256_12": "c0d96e55b6cf", "chars": 438, "words": 78}, "output": {"guess": "human", "confidence": 0.255, "model_score": 0.318, "style_score": 0.192}, "duration_ms": 10689.54, "stages_ms": {"validate": 0.09, "model_signal": 10684.98, "style_signal": 1.25, "score_label": 0.01, "audit_write": 1.64}, "cold": true, "cpu_s": 14.8438, "rss_mb": 894.0}
+{"timestamp": "2026-11-16T03:31:52.348+00:00", "request_id": "6e06bf9bf0e1", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115223139_w3", "content_id": "4577554ef8e0497684edfe17880ff950", "input": {"sha256_12": "7f32528edd7a", "chars": 3028, "words": 531}, "output": {"guess": "human", "confidence": 0.3246, "model_score": 0.5206, "style_score": 0.1286}, "duration_ms": 612.3, "stages_ms": {"validate": 0.19, "model_signal": 606.53, "style_signal": 2.25, "score_label": 0.01, "audit_write": 1.51}, "cold": false, "cpu_s": 6.8281, "rss_mb": 901.2}
+```
+
+**Criterion 2.** The script's own count, from `run_capstone.py`'s console:
+`criterion 2: MET 61/61` in each run (1 cold + 50 warm + 3 bad + 7 burst). The
+first and last of Run 1's 61 sent requests, each with the `request_id` it was
+matched to:
+
+```json
+{"phase": "cold", "expected": 200, "status": 200, "request_id": "cfff19f71390", "client_ms": 10694.2}
+{"phase": "warm", "expected": 200, "status": 200, "request_id": "4d46413a86d6", "client_ms": 128.2}
+{"phase": "flood", "expected": 429, "status": 429, "request_id": "acbb2aaa4f85", "client_ms": 4.4}
+```
+
+**Criterion 3.** Run 1's warm CPU is 139.92 core-s summed over the 50 warm
+records ÷ 50 = **2.80**. Its stage breakdown:
+
+| Stage | mean ms | p95 ms | share of warm total |
+|---|---|---|---|
+| `validate` | 0.08 | 0.16 | 0.04% |
+| `model_signal` | 203.47 | 377.57 | 98.47% |
+| `style_signal` | 0.92 | 2.3 | 0.45% |
+| `score_label` | 0.01 | 0.01 | 0.0% |
+| `audit_write` | 1.01 | 1.41 | 0.49% |
+| **total** | | | **99.45%** |
+
+The highest memory reading in any run, Run 2, 1141.4 MB after a 316-word warm
+request:
+
+```json
+{"timestamp": "2026-11-16T03:32:18.153+00:00", "request_id": "2a3fb8944495", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115223202_w36", "content_id": "7cbe19bea3e64dc9b8783ed5e5f40c01", "input": {"sha256_12": "d35285498edc", "chars": 1993, "words": 316}, "output": {"guess": "unsure", "confidence": 0.5816, "model_score": 0.6765, "style_score": 0.4867}, "duration_ms": 289.81, "stages_ms": {"validate": 0.1, "model_signal": 286.3, "style_signal": 1.31, "score_label": 0.01, "audit_write": 1.01}, "cold": false, "cpu_s": 4.0781, "rss_mb": 1141.4}
+```
+
+**Criterion 4.** Every bad-path record from Run 1, in order: blank → 400,
+3 words → 422, JSON array → 400, then the burst: 5 × 200 and 2 × 429. No 5xx in
+any run.
+
+```json
+{"timestamp": "2026-11-16T03:32:02.128+00:00", "request_id": "08ff737111b8", "route": "/submit", "method": "POST", "http_status": 400, "outcome": "rejected", "creator_id": "cost20261115223139_blank", "content_id": null, "input": {"sha256_12": "0aad7da77d2e", "chars": 3, "words": 0}, "output": {"error": "invalid_input"}, "duration_ms": 1.54, "stages_ms": {"validate": 0.8}, "cold": false, "cpu_s": 0.0156, "rss_mb": 943.7}
+{"timestamp": "2026-11-16T03:32:02.132+00:00", "request_id": "9ad8c8cd3cd4", "route": "/submit", "method": "POST", "http_status": 422, "outcome": "rejected", "creator_id": "cost20261115223139_short", "content_id": null, "input": {"sha256_12": "8bab21c8a377", "chars": 13, "words": 3}, "output": {"error": "too_short"}, "duration_ms": 1.1, "stages_ms": {"validate": 0.75}, "cold": false, "cpu_s": 0.0, "rss_mb": 943.7}
+{"timestamp": "2026-11-16T03:32:02.136+00:00", "request_id": "3a3ad8018182", "route": "/submit", "method": "POST", "http_status": 400, "outcome": "rejected", "creator_id": null, "content_id": null, "input": null, "output": {"error": "invalid_input"}, "duration_ms": 1.11, "stages_ms": {"validate": 0.75}, "cold": false, "cpu_s": 0.0, "rss_mb": 943.7}
+{"timestamp": "2026-11-16T03:32:02.270+00:00", "request_id": "285efad64cfe", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115223139_flood", "content_id": "379c7f95aa8e4fa7aa04848c33fb5dab", "input": {"sha256_12": "5a52e0fcff53", "chars": 439, "words": 74}, "output": {"guess": "human", "confidence": 0.2752, "model_score": 0.3169, "style_score": 0.2334}, "duration_ms": 131.42, "stages_ms": {"validate": 0.04, "model_signal": 129.63, "style_signal": 0.23, "score_label": 0.0, "audit_write": 0.67}, "cold": false, "cpu_s": 2.0781, "rss_mb": 792.4}
+{"timestamp": "2026-11-16T03:32:02.378+00:00", "request_id": "cb52a8cb7e8c", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115223139_flood", "content_id": "91c32b557b6a400e9e53f1e07fea9e18", "input": {"sha256_12": "5a52e0fcff53", "chars": 439, "words": 74}, "output": {"guess": "human", "confidence": 0.2752, "model_score": 0.3169, "style_score": 0.2334}, "duration_ms": 104.39, "stages_ms": {"validate": 0.05, "model_signal": 101.84, "style_signal": 0.34, "score_label": 0.01, "audit_write": 1.03}, "cold": false, "cpu_s": 1.7031, "rss_mb": 778.9}
+{"timestamp": "2026-11-16T03:32:02.478+00:00", "request_id": "0d48f9af0008", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115223139_flood", "content_id": "6e853717bf9a464c82e0c257ec693e88", "input": {"sha256_12": "5a52e0fcff53", "chars": 439, "words": 74}, "output": {"guess": "human", "confidence": 0.2752, "model_score": 0.3169, "style_score": 0.2334}, "duration_ms": 96.04, "stages_ms": {"validate": 0.05, "model_signal": 93.36, "style_signal": 0.39, "score_label": 0.01, "audit_write": 1.23}, "cold": false, "cpu_s": 1.25, "rss_mb": 799.9}
+{"timestamp": "2026-11-16T03:32:02.582+00:00", "request_id": "ea8abe2a00d8", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115223139_flood", "content_id": "fbb0ef828ce7473789c19e7060985c6f", "input": {"sha256_12": "5a52e0fcff53", "chars": 439, "words": 74}, "output": {"guess": "human", "confidence": 0.2752, "model_score": 0.3169, "style_score": 0.2334}, "duration_ms": 101.0, "stages_ms": {"validate": 0.07, "model_signal": 98.07, "style_signal": 0.51, "score_label": 0.01, "audit_write": 0.96}, "cold": false, "cpu_s": 1.5625, "rss_mb": 746.9}
+{"timestamp": "2026-11-16T03:32:02.726+00:00", "request_id": "76c65604e31e", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115223139_flood", "content_id": "860eafae61304f6c99051e311f58e095", "input": {"sha256_12": "5a52e0fcff53", "chars": 439, "words": 74}, "output": {"guess": "human", "confidence": 0.2752, "model_score": 0.3169, "style_score": 0.2334}, "duration_ms": 124.56, "stages_ms": {"validate": 0.05, "model_signal": 122.34, "style_signal": 0.3, "score_label": 0.01, "audit_write": 0.89}, "cold": false, "cpu_s": 1.75, "rss_mb": 782.3}
+{"timestamp": "2026-11-16T03:32:02.731+00:00", "request_id": "f7abfdd46f6a", "route": "/submit", "method": "POST", "http_status": 429, "outcome": "rate_limited", "creator_id": "cost20261115223139_flood", "content_id": null, "input": null, "output": {"error": "rate_limited"}, "duration_ms": 1.89, "stages_ms": null, "cold": false, "cpu_s": 0.0, "rss_mb": 782.3}
+{"timestamp": "2026-11-16T03:32:02.736+00:00", "request_id": "acbb2aaa4f85", "route": "/submit", "method": "POST", "http_status": 429, "outcome": "rate_limited", "creator_id": "cost20261115223139_flood", "content_id": null, "input": null, "output": {"error": "rate_limited"}, "duration_ms": 1.29, "stages_ms": null, "cold": false, "cpu_s": 0.1562, "rss_mb": 782.3}
+```
+
+**Criterion 5.** `results/fresh_clone_before.md`:
+
+```
+clone 1: PASS: 8/8 steps
+   git clone      ok  HEAD bca6742, 0.2s
+   venv           ok  py -3.13 -m venv .venv, 10.5s
+   python ver     ok  Python 3.13.15
+   pip install    ok  exit 0, 260.1s
+   detector.py    ok  model_signal   0.8864   (higher = more likely AI) (12.9s)
+   test.py        ok  9 passed, 0 failed, 0 to look at, 0 skipped
+   GET /health    ok  HTTP 200
+   POST /submit   ok  HTTP 200, guess=human, request_id 3a909e22369e found in clone's requests.jsonl
+clone 2: PASS: 8/8 steps
+   git clone      ok  HEAD bca6742, 0.2s
+   venv           ok  py -3.13 -m venv .venv, 11.6s
+   python ver     ok  Python 3.13.15
+   pip install    ok  exit 0, 262.1s
+   detector.py    ok  model_signal   0.8864   (higher = more likely AI) (13.0s)
+   test.py        ok  9 passed, 0 failed, 0 to look at, 0 skipped
+   GET /health    ok  HTTP 200
+   POST /submit   ok  HTTP 200, guess=human, request_id 78d2a1fda9fd found in clone's requests.jsonl
+clone 3: PASS: 8/8 steps
+   git clone      ok  HEAD bca6742, 0.2s
+   venv           ok  py -3.13 -m venv .venv, 12.1s
+   python ver     ok  Python 3.13.15
+   pip install    ok  exit 0, 262.9s
+   detector.py    ok  model_signal   0.8864   (higher = more likely AI) (12.7s)
+   test.py        ok  9 passed, 0 failed, 0 to look at, 0 skipped
+   GET /health    ok  HTTP 200
+   POST /submit   ok  HTTP 200, guess=human, request_id b027632d6fd2 found in clone's requests.jsonl
+```
+
 
 **The Improvement**
 

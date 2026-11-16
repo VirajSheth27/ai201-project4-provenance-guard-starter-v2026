@@ -199,7 +199,29 @@ def main():
     p.add_argument("--label", required=True)
     p.add_argument("--trials", type=int, default=3)
     p.add_argument("--port", type=int, default=5061)
+    p.add_argument("--rerender", action="store_true",
+                   help="rebuild the report from saved results (e.g. once criterion 5 "
+                        "has run); sends nothing and re-scores the same numbers")
     args = p.parse_args()
+
+    if args.rerender:
+        trials = json.loads((config.RESULTS_DIR / f"capstone_{args.label}.json")
+                            .read_text(encoding="utf-8"))
+        # Older saves kept no records; rebuild them from the request log by the
+        # request_ids each trial matched.
+        log = [json.loads(l) for l in config.REQUEST_LOG.read_text(encoding="utf-8")
+               .splitlines() if l.strip()]
+        by_id = {x.get("request_id"): x for x in log}
+        for t in trials:
+            if "records" not in t:
+                t["records"] = [by_id[s["request_id"]] for s in t["sent_detail"]
+                                if s["request_id"] in by_id]
+        scores = [score(t) for t in trials]
+        clone, _ = load_clone_results(args.label)
+        out = config.RESULTS_DIR / f"capstone_{args.label}.md"
+        out.write_text(report(trials, scores, args, clone), encoding="utf-8")
+        print(f"re-rendered {out.relative_to(ROOT)}")
+        return
 
     trials, scores = [], []
     for t in range(args.trials):
@@ -219,9 +241,8 @@ def main():
     config.RESULTS_DIR.mkdir(exist_ok=True)
     out = config.RESULTS_DIR / f"capstone_{dt.datetime.now():%Y-%m-%d_%H%M}_{args.label}.md"
     out.write_text(report(trials, scores, args, clone), encoding="utf-8")
-    (config.RESULTS_DIR / f"capstone_{args.label}.json").write_text(json.dumps(
-        [{k: v for k, v in r.items() if k not in ("records",)} for r in trials], indent=1),
-        encoding="utf-8")
+    (config.RESULTS_DIR / f"capstone_{args.label}.json").write_text(
+        json.dumps(trials, indent=1, ensure_ascii=False), encoding="utf-8")
     print(f"\nwrote {out.relative_to(ROOT)}")
 
 
