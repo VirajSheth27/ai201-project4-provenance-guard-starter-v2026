@@ -112,6 +112,9 @@ def _telemetry_finish(response):
         })
     except Exception:  # noqa: BLE001 — a logging failure must never fail the request
         app.logger.exception("request telemetry failed")
+    # Lets a caller (measure_cost.py) match its request to this exact log line.
+    if getattr(g, "request_id", None):
+        response.headers["X-Request-ID"] = g.request_id
     return response
 
 

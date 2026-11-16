@@ -1374,14 +1374,137 @@ Why not Path A, as arithmetic: torch takes about 200–800 MB depending on the
 build, and the GPT-2 weights are about 550 MB, loaded into RAM to score. A free
 tier is 512 MB. The service is over budget before the first request arrives,
 and a free host would download those 550 MB again after every idle spin-down.
+**Measured** (`rss_mb` in the request log): 47 MB idle, then **0.9–1.1 GB**
+once the first `/submit` loads GPT-2, with a peak of 1088.5 MB. The weights
+are 551 MB on disk. That's about twice the free tier.
+
+*Tested from a clean checkout.* I cloned the repo into a new folder, made a
+fresh venv and followed RUNNING.md word for word.
+- **First attempt failed.** RUNNING.md said `python -m venv .venv`, and on my
+  machine plain `python` is 3.14. Everything installed, and `detector.py` even
+  scored text, but `python test.py` ended `8 passed, 1 failed` on
+  `[FAIL] Python version`, "Not ready yet". A reader would have stopped there.
+- **The fix**: RUNNING.md now says `py -3.13 -m venv .venv` (or `python3.13`)
+  and has a `python --version` check right after it.
+- **Second attempt passed**: `9 passed, 0 failed`. `python serve.py` answered
+  `/health`, a `/submit` returned a decision, and the clone's own
+  `logs/requests.jsonl` got the record.
+- **One thing it didn't test**: the GPT-2 download. The clone shares the
+  user-wide Hugging Face cache, so `detector.py` found the 551 MB already
+  there. A machine that has never run this project downloads it once.
 
 **Instrumentation**
 
-*(Milestone 3)*
+Every request to every route writes one JSON line to **`logs/requests.jsonl`**.
+That includes 200s, 4xx, 429s and crashes. The code is
+`app.py::_telemetry_start` / `_telemetry_finish`, plus `telemetry.py`, and the
+stage timers are in `app.py::submit`. The hooks are registered *before*
+Flask-Limiter's, because otherwise a rate-limited request would never start the
+clock. Each response carries an `X-Request-ID` header, so a caller can find its
+own request in the log. Decisions still go to `logs/audit.jsonl` as before, and
+the two logs join on `content_id`.
+
+| Field | What it holds |
+|---|---|
+| `timestamp` | UTC, millisecond precision, written when the response is ready |
+| `request_id` | 12 hex chars, also sent back as the `X-Request-ID` header |
+| `route`, `method`, `http_status` | what was called and what it answered |
+| `outcome` | `ok` / `rejected` (4xx) / `rate_limited` (429) / `error` (5xx) |
+| `creator_id` | who the request claims to be, or `null` if it gave no usable one |
+| `content_id` | the decision's id, so the record joins `audit.jsonl` |
+| `input` | **what came in, without keeping it**: `sha256_12` (hash prefix), `chars`, `words`. Never the text |
+| `output` | `/submit`: guess, confidence, both signal scores; any failure: the error code |
+| `duration_ms` | server-side time from first hook to response |
+| `stages_ms` | `/submit` only: `validate`, `model_signal`, `style_signal`, `score_label`, `audit_write`. A request refused early only has the stages it reached |
+| `cold` | `true` if the model wasn't loaded when the request arrived, so this request pays the load |
+| `cpu_s` | `time.process_time()` delta: CPU **core-seconds** for the whole process during the request |
+| `rss_mb` | resident memory of the server process after the request |
+| `exception` | only on a 500: the exception type and message |
+
+**Entries from a real session**: `python measure_cost.py --label m3`, run on
+2026-11-15 (the full set of 21 is in `results/cost_2026-11-15_2031_m3.md`).
+The `//` lines are my notes, not part of the log.
+
+```json
+// cold: first /submit after start, includes loading GPT-2 (7.1 s, 13.7 CPU s)
+{"timestamp": "2026-11-16T01:31:49.556+00:00", "request_id": "2c1ff1d2b229", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115203141_cold", "content_id": "ec7017f9b10147059becd6e8c6ee8cc5", "input": {"sha256_12": "c0d96e55b6cf", "chars": 438, "words": 78}, "output": {"guess": "human", "confidence": 0.255, "model_score": 0.318, "style_score": 0.192}, "duration_ms": 7108.6, "stages_ms": {"validate": 0.13, "model_signal": 7105.23, "style_signal": 1.05, "score_label": 0.01, "audit_write": 0.9}, "cold": true, "cpu_s": 13.7188, "rss_mb": 894.6}
+// warm w1: same text as the cold one, 89 ms; signal one is 97% of it
+{"timestamp": "2026-11-16T01:31:49.649+00:00", "request_id": "6ec77f318716", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115203141_w1", "content_id": "2090df91035545b9a17dd7a98a8fce49", "input": {"sha256_12": "c0d96e55b6cf", "chars": 438, "words": 78}, "output": {"guess": "human", "confidence": 0.255, "model_score": 0.318, "style_score": 0.192}, "duration_ms": 88.9, "stages_ms": {"validate": 0.04, "model_signal": 86.49, "style_signal": 0.4, "score_label": 0.01, "audit_write": 0.97}, "cold": false, "cpu_s": 1.375, "rss_mb": 921.4}
+// warm w3: 531 words, the longest of the ten, 300 ms
+{"timestamp": "2026-11-16T01:31:50.055+00:00", "request_id": "7f653b6c5f38", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115203141_w3", "content_id": "7a9ea0b536e54445b31f10ee93a1938c", "input": {"sha256_12": "7f32528edd7a", "chars": 3028, "words": 531}, "output": {"guess": "human", "confidence": 0.3246, "model_score": 0.5206, "style_score": 0.1286}, "duration_ms": 300.32, "stages_ms": {"validate": 0.14, "model_signal": 296.79, "style_signal": 1.79, "score_label": 0.01, "audit_write": 0.69}, "cold": false, "cpu_s": 4.6875, "rss_mb": 1088.5}
+// warm w5: 22 words, 61 ms (latency follows length)
+{"timestamp": "2026-11-16T01:31:50.335+00:00", "request_id": "0ef606cffe44", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115203141_w5", "content_id": "f66884a08d9948888780f23e222e2ab3", "input": {"sha256_12": "78d4d9fad811", "chars": 122, "words": 22}, "output": {"guess": "unsure", "confidence": 0.3758, "model_score": 0.3127, "style_score": 0.4389}, "duration_ms": 60.78, "stages_ms": {"validate": 0.03, "model_signal": 58.44, "style_signal": 0.26, "score_label": 0.01, "audit_write": 1.13}, "cold": false, "cpu_s": 0.9531, "rss_mb": 1033.2}
+// warm w6: 316 words, the slowest warm request, 323 ms
+{"timestamp": "2026-11-16T01:31:50.662+00:00", "request_id": "75a3b2b74031", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115203141_w6", "content_id": "0f514d6a087d44ea8fb9497146c2fc93", "input": {"sha256_12": "d35285498edc", "chars": 1993, "words": 316}, "output": {"guess": "unsure", "confidence": 0.5816, "model_score": 0.6765, "style_score": 0.4867}, "duration_ms": 323.48, "stages_ms": {"validate": 0.08, "model_signal": 320.36, "style_signal": 1.11, "score_label": 0.01, "audit_write": 0.97}, "cold": false, "cpu_s": 5.1875, "rss_mb": 1035.2}
+// warm w10: 12 words, the fastest, 44 ms
+{"timestamp": "2026-11-16T01:31:51.391+00:00", "request_id": "bc95b1f38056", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115203141_w10", "content_id": "54af8536ed3e4109ace33ec3031f7846", "input": {"sha256_12": "f49c23e2d361", "chars": 69, "words": 12}, "output": {"guess": "human", "confidence": 0.0809, "model_score": 0.1619, "style_score": 0.0}, "duration_ms": 44.1, "stages_ms": {"validate": 0.03, "model_signal": 42.32, "style_signal": 0.06, "score_label": 0.01, "audit_write": 0.75}, "cold": false, "cpu_s": 0.8594, "rss_mb": 1038.7}
+// FAILURE: blank text, refused in validation with a 400; input fingerprint shows 0 words
+{"timestamp": "2026-11-16T01:31:51.396+00:00", "request_id": "cc07d70e2679", "route": "/submit", "method": "POST", "http_status": 400, "outcome": "rejected", "creator_id": "cost20261115203141_blank", "content_id": null, "input": {"sha256_12": "0aad7da77d2e", "chars": 3, "words": 0}, "output": {"error": "invalid_input"}, "duration_ms": 1.55, "stages_ms": {"validate": 0.79}, "cold": false, "cpu_s": 0.0, "rss_mb": 1038.7}
+// FAILURE: 3 words, refused with a 422 before any model work
+{"timestamp": "2026-11-16T01:31:51.399+00:00", "request_id": "cd92d3fcb2f5", "route": "/submit", "method": "POST", "http_status": 422, "outcome": "rejected", "creator_id": "cost20261115203141_short", "content_id": null, "input": {"sha256_12": "8bab21c8a377", "chars": 13, "words": 3}, "output": {"error": "too_short"}, "duration_ms": 1.16, "stages_ms": {"validate": 0.79}, "cold": false, "cpu_s": 0.0, "rss_mb": 1038.7}
+// FAILURE: body is a JSON array; no creator_id or input to record, still logged
+{"timestamp": "2026-11-16T01:31:51.403+00:00", "request_id": "5fdb5b4542b7", "route": "/submit", "method": "POST", "http_status": 400, "outcome": "rejected", "creator_id": null, "content_id": null, "input": null, "output": {"error": "invalid_input"}, "duration_ms": 1.04, "stages_ms": {"validate": 0.72}, "cold": false, "cpu_s": 0.0, "rss_mb": 1038.7}
+// flood 1 of 7: accepted
+{"timestamp": "2026-11-16T01:31:51.503+00:00", "request_id": "991152eb72c5", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115203141_flood", "content_id": "66734f3cb7fb47a7a161f5826d1fe535", "input": {"sha256_12": "5a52e0fcff53", "chars": 439, "words": 74}, "output": {"guess": "human", "confidence": 0.2752, "model_score": 0.3169, "style_score": 0.2334}, "duration_ms": 98.26, "stages_ms": {"validate": 0.03, "model_signal": 96.77, "style_signal": 0.32, "score_label": 0.01, "audit_write": 0.73}, "cold": false, "cpu_s": 1.4688, "rss_mb": 964.4}
+// FAILURE: flood 6 of 7, rate limited; the route never ran, so no stages
+{"timestamp": "2026-11-16T01:31:51.882+00:00", "request_id": "c293c0e60bbb", "route": "/submit", "method": "POST", "http_status": 429, "outcome": "rate_limited", "creator_id": "cost20261115203141_flood", "content_id": null, "input": null, "output": {"error": "rate_limited"}, "duration_ms": 1.58, "stages_ms": null, "cold": false, "cpu_s": 0.0, "rss_mb": 948.5}
+// FAILURE: flood 7 of 7, rate limited (cpu_s 0.22 is torch's threads winding down, see note)
+{"timestamp": "2026-11-16T01:31:51.886+00:00", "request_id": "158a3ade4ccc", "route": "/submit", "method": "POST", "http_status": 429, "outcome": "rate_limited", "creator_id": "cost20261115203141_flood", "content_id": null, "input": null, "output": {"error": "rate_limited"}, "duration_ms": 1.15, "stages_ms": null, "cold": false, "cpu_s": 0.2188, "rss_mb": 948.5}
+```
+
+**A crash, recorded.** Nothing in the real runs crashed, so I tested the 500
+path on purpose. I replaced `detector.model_signal` with a function that
+raises, sent one request through Flask's test client, and pointed the logs at a
+scratch folder so the real ones weren't touched. The client got a JSON 500 with
+the `request_id`, and the log kept this record. It shows how far the request
+got: `model_signal` started and died 0.01 ms in.
+
+```json
+{"timestamp": "2026-11-16T01:28:34.407+00:00", "request_id": "5e675c7b48fd", "route": "/submit", "method": "POST", "http_status": 500, "outcome": "error", "creator_id": "crash_test", "content_id": null, "input": {"sha256_12": "92632e6f05f3", "chars": 48, "words": 10}, "output": {"error": "internal_error"}, "duration_ms": 2.88, "stages_ms": {"validate": 0.04, "model_signal": 0.01}, "cold": true, "cpu_s": 0.0, "rss_mb": 42.1, "exception": "RuntimeError: simulated crash in signal one"}
+```
+
+Note on `cpu_s`: it is **process-wide**, and torch spreads one forward pass
+across several cores (14 intra-op threads on this 20-thread machine). That's
+why a warm request shows ~1–5 CPU seconds inside 50–320 ms of wall time. It is
+also why the last 429 above shows 0.22 s: torch's worker threads were still
+winding down from the request before. The number is only meaningful when
+requests are sent one at a time, which is how `measure_cost.py` sends them.
 
 **What It Costs**
 
-*(Milestone 3 / 7)*
+Nothing here calls a paid API, so the cost of a run is **compute**: wall time,
+CPU core-seconds and memory, on my laptop (Windows 11, 20 logical CPUs, torch
+2.15 CPU-only).
+
+*How I measured it.* `python measure_cost.py --label m3` starts a fresh
+`serve.py`, sends one cold submission, then **10 warm submissions** (the ten
+"own writing" texts from `scenarios.py`, 12–569 words, each under its own
+creator_id), then the bad-path requests. It matches every request to its log
+record by `X-Request-ID` and averages the server-side `duration_ms` and
+`cpu_s` across the ten warm runs. Report: `results/cost_2026-11-15_2031_m3.md`.
+
+| | Measured |
+|---|---|
+| **One warm run, wall time** | **mean 178 ms** (p50 200, p95 323, min 44, max 323; n = 10) |
+| **One warm run, CPU** | **mean 2.83 core-seconds** (0.78 to 5.19) |
+| One cold run (first after start, loads GPT-2) | 7.1 s wall, 13.7 core-seconds. In Milestone 2 the same cold start took 18.6 s, before the model files were in the OS file cache |
+| Process start to `/health` answering | 1.04 s (the model isn't loaded until the first `/submit`) |
+| Memory | 47 MB idle, **~0.9–1.1 GB** once the model is loaded (peak 1088.5 MB) |
+| Where a warm run's time goes | `model_signal` **98.4%**, style 0.5%, audit write 0.5%, validation and scoring ~0% |
+
+Warm cost follows text length, because GPT-2 reads up to 400 tokens. 12 words
+took 44 ms and 0.86 core-seconds; 316 words took 323 ms and 5.19. Above
+roughly 300 words it flattens: the 531- and 569-word texts are truncated to the
+same 400 tokens and ran in about 300 ms.
+
+*A hundred people a day* (one submission each, the measured warm mean):
+- CPU: 100 × 2.83 core-s = **283 core-seconds a day**, under 5 CPU-minutes.
+- Wall time: 100 × 0.178 s = **17.8 seconds** of request time a day.
+- Plus at most one cold start a day if the process restarts: +13.7 core-s.
+
+So the compute is trivial. The real cost is **holding ~1.1 GB of RAM all day**
+for under 20 seconds of work, because the model has to stay loaded to be fast.
+That memory, not the CPU, is what rules out a 512 MB free host.
 
 **Run Log and Verdicts**
 

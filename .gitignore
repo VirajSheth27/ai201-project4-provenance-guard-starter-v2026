@@ -20,3 +20,6 @@ Thumbs.db
 # NOTE: logs/ and results/ are deliberately NOT ignored. Your audit log and
 # your attack runs are evidence, and they're part of what gets graded.
 # Commit them.
+
+# capstone: server stdout captured by measure_cost.py (the request log is the record)
+logs/serve_*.out

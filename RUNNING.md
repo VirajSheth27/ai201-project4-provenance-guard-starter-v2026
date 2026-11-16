@@ -234,6 +234,91 @@ your write-up; that's the deliverable.
 
 ---
 
+## Capstone: Path B — local with logs
+
+This is the run path for the unit 9 capstone. It's local on purpose: the
+arithmetic above, measured on this project (see *What the environment needs*),
+puts the running service at roughly **1.1 GB resident memory** against a free
+tier's 512 MB.
+
+### The one command
+
+From a clean checkout, with the environment below set up:
+
+```bash
+python serve.py
+```
+
+That starts the service on **waitress** at `http://127.0.0.1:5000`. Not
+`gunicorn`: it needs `fork()` and won't start on Windows. Not `python app.py`:
+that's Flask's development server, and it still works for local debugging.
+Check it's up:
+
+```bash
+curl http://127.0.0.1:5000/health          # Windows PowerShell: curl.exe
+```
+
+Every request now writes one record to **`logs/requests.jsonl`**: timings per
+stage, CPU, memory, outcome, and an input fingerprint. Decisions still go to
+`logs/audit.jsonl` as before. The two logs join on `content_id`.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `HOST` / `PORT` | `127.0.0.1` / `5000` | Same as `app.py` |
+| `AI201_THREADS` | `4` | Waitress worker threads |
+| `AI201_RATE_LIMITS` | `1` | `0` turns rate limiting off |
+
+### Measuring one run
+
+```bash
+python measure_cost.py --label <name>
+```
+
+This starts its **own** `serve.py` on port 5055, so it doesn't matter whether
+one is already running on 5000. It sends:
+- 1 cold submission
+- 10 warm submissions
+- 3 malformed requests
+- a burst of 7 that hits the rate limit
+
+Then it stops the server and writes `results/cost_<date>_<name>.md`. Use
+`--url http://127.0.0.1:5000` to measure a server you started yourself.
+
+### What the environment needs
+
+| Thing | What was measured on |
+|---|---|
+| OS | Windows 11 (also runs on macOS/Linux; nothing here is OS-specific) |
+| Python | **3.13.15** (3.11–3.13 supported; **not 3.14**, torch has no wheels for it) |
+| Dependencies | ranges in `requirements.txt`; **exact versions in `requirements-lock.txt`** |
+| Key versions | torch 2.15.0 (CPU), transformers 4.57.6, Flask 3.1.3, Flask-Limiter 3.12, waitress 3.0.2, psutil 7.2.2 |
+| Model | `gpt2` from Hugging Face, **551 MB on disk** in `~/.cache/huggingface/hub/models--gpt2` (measured with `huggingface_hub.scan_cache_dir()`), downloaded once by `python detector.py` |
+| Memory while serving | about **1.0–1.1 GB** RSS after the first submission (from `rss_mb` in the request log) |
+| Disk | about 551 MB for the model, plus about 1 GB of packages in `.venv` |
+| Network | only for the first install and the one-time model download; the service itself makes no outside calls |
+
+Setup from a clean checkout:
+
+```bash
+git clone <this repo> && cd <repo>
+python3.13 -m venv .venv               # Windows: py -3.13 -m venv .venv
+source .venv/bin/activate              # Windows: .venv\Scripts\Activate.ps1
+python --version                       # must say 3.11, 3.12 or 3.13
+pip install -r requirements.txt        # or requirements-lock.txt for the exact versions
+python detector.py                     # one-time: downloads gpt2 (~551 MB)
+python test.py                         # should end "9 passed"
+python serve.py
+```
+
+> **Name the Python version when you make the venv.** I tested these steps
+> from a fresh clone. The first attempt used plain `python -m venv .venv`, and
+> on my machine plain `python` is **3.14** (the newest install wins on PATH).
+> Everything installed, and the service even scored text, but `python test.py`
+> ended with `[FAIL] Python version`, `8 passed, 1 failed`, "Not ready yet".
+> With `py -3.13 -m venv .venv`, the same steps pass.
+
+---
+
 ## Where everything lives
 
 | File | What it does |
