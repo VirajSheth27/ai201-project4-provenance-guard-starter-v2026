@@ -58,6 +58,19 @@ EXPECTED_BAD = [("blank", 400), ("short", 422), ("array", 400)] + \
 OUTCOME_FOR = {400: "rejected", 422: "rejected", 429: "rate_limited", 200: "ok"}
 
 
+def start_to_first_label(r):
+    """
+    Process start to the first label a writer gets back: /health readiness
+    time + the first /submit's round trip. NOT part of criterion 1's verdict
+    (that's the cold request on its own, as written); reported next to it so
+    that moving the model load into startup can't hide where the time went.
+    """
+    cold = next((s for s in r["sent_detail"] if s["phase"] == "cold"), None)
+    if r.get("startup_s") is None or not cold:
+        return None
+    return round(r["startup_s"] + cold["client_ms"] / 1000, 1)
+
+
 def score(r):
     """Score one trial against criteria 1–4. Returns {n: (passed, cell_text)}."""
     w = r["warm"]["duration_ms"]
@@ -65,7 +78,8 @@ def score(r):
     c1 = (w.get("p95") is not None and w["p95"] <= P95_MAX_MS
           and cold_ms is not None and cold_ms <= COLD_MAX_MS
           and w.get("n") == WARM_N)
-    c1_txt = f"p95 {w.get('p95')} ms, cold {cold_ms / 1000:.1f} s"
+    c1_txt = (f"p95 {w.get('p95')} ms, cold {cold_ms / 1000:.1f} s "
+              f"(start→first label {start_to_first_label(r)} s)")
 
     c2 = (r["submit_sent"] == EXPECTED_SUBMITS
           and r["submit_logged"] == r["submit_sent"]
@@ -142,7 +156,10 @@ def report(trials, scores, args, clone):
     L += ["", "## Per trial", ""]
     for i, r in enumerate(trials, 1):
         w = r["warm"]["duration_ms"]
-        L += [f"**Run {i}** ({r['stamp']}): startup {r['startup_s']} s · cold {r['cold']['duration_ms']} ms "
+        wu = r.get("warmup")
+        wu_txt = (f" (warm-up {wu['duration_ms']} ms, {wu['cpu_s']} CPU s)" if wu else " (no warm-up)")
+        L += [f"**Run {i}** ({r['stamp']}): startup {r['startup_s']} s{wu_txt} · "
+              f"start→first label {start_to_first_label(r)} s · cold {r['cold']['duration_ms']} ms "
               f"({r['cold']['cpu_s']} core-s) · warm p50 {w['p50']} / p95 {w['p95']} / p99 {w['p99']} / "
               f"max {w['max']} ms (n={w['n']}) · warm CPU {r['warm_cpu']['sum_s']} / {r['warm_cpu']['n']} = "
               f"{r['warm_cpu']['mean_s']} core-s · highest RSS {r['peak_rss_mb']} MB · "

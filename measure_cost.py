@@ -227,6 +227,8 @@ def run_once(label="", n=50, port=5055, url=None, quiet=False):
         "submit_logged": sum(1 for s in sent if s["record"]),
         "submit_records_in_log": len(submit_records),
         "any_500": any(isinstance(s["status"], int) and s["status"] >= 500 for s in sent),
+        # serve.py's warm-up record, if it ran (Milestone 6 improvement).
+        "warmup": next((x for x in records if x.get("route") == "(startup)"), None),
         "peak_rss_mb": max((r["rss_mb"] or 0) for r in submit_records) if submit_records else None,
         "bad_path": [{"phase": s["phase"], "expected": s["expected"], "status": s["status"],
                       "logged_outcome": (s["record"] or {}).get("outcome")}
@@ -251,7 +253,9 @@ def to_markdown(r):
         "",
         "| Measure | Value |",
         "|---|---|",
-        f"| Process start → /health answers | {r['startup_s']} s |",
+        f"| Process start → /health answers | {r['startup_s']} s"
+        + (f" (includes warm-up: {r['warmup']['duration_ms']} ms, {r['warmup']['cpu_s']} CPU s, "
+           f"outcome {r['warmup']['outcome']})" if r.get("warmup") else " (no warm-up)") + " |",
         f"| Cold /submit (first, loads GPT-2) | {c['duration_ms']} ms, {c['cpu_s']} CPU s, "
         f"model stage {c['model_signal_ms']} ms |",
         f"| Warm /submit, server-side duration | mean {w['duration_ms'].get('mean')} ms, "
