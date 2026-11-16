@@ -266,6 +266,7 @@ stage, CPU, memory, outcome, and an input fingerprint. Decisions still go to
 |---|---|---|
 | `HOST` / `PORT` | `127.0.0.1` / `5000` | Same as `app.py` |
 | `AI201_THREADS` | `4` | Waitress worker threads |
+| `AI201_WARMUP` | `1` | Load GPT-2 and run one pass **before** accepting traffic. `/health` doesn't answer for ~7–9 s after start, but the first `/submit` takes ~0.1 s instead of 7–11 s. `0` = the old behaviour |
 | `AI201_RATE_LIMITS` | `1` | `0` turns rate limiting off |
 
 ### Measuring one run

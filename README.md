@@ -1543,7 +1543,7 @@ warm P95 and cold start. Criterion 3 is the highest memory after any
 `/submit`, then the warm CPU mean, then the total of the stage shares.
 
 **All five MET, in all three runs.** Whether that means the targets were too
-low is in The Improvement below.
+low is answered at the end of The Improvement below.
 
 *A correction I made to my own harness, not to a criterion.* The first scoring
 of criterion 5 said **0/3**, but every clone had passed every step. My check in
@@ -1650,7 +1650,119 @@ clone 3: PASS: 8/8 steps
 
 **The Improvement**
 
-*(Milestone 6)*
+*What I changed:* one thing. `serve.py` now calls `warm_up()` before waitress
+accepts any traffic. `warm_up()` loads GPT-2 (`detector.warm_up()`), runs one
+forward pass on a fixed sentence (`detector.model_signal`), and writes a
+`(startup)` record to `requests.jsonl` with what that cost. A warm-up that
+fails is logged as `warmup_failed`, and the service still starts; `/submit`
+then answers 503 the way it always did. `AI201_WARMUP=0` brings back the old
+behaviour. Nothing else changed between the runs: same criteria, same harness,
+same texts, same thresholds. The code is in commit `fb9aa1a`.
+
+*Why, given that nothing was missed.* With all five criteria met, there was no
+miss to diagnose, so I aimed at the biggest cost a writer could actually see in
+the "before" log. That was the first `/submit` after a start: 10.7, 7.5 and
+6.5 s. In all three runs **99.96%** of that request was the `model_signal`
+stage (10,684.98 of 10,689.54 ms in Run 1, below).
+- **The stage** is signal one, `detector.model_signal`.
+- **The mechanism**: `detector._load()` is lazy. The model and tokenizer are
+  read from disk and torch initialises on the first call, inside whichever
+  request happens to arrive first. Warm requests never pay it again (`cold`
+  flips to `false`).
+
+So the writer who happens to be first waits about 40 times as long as everyone
+after them, for something unrelated to their text.
+
+```json
+// before, Run 1: the first request carries the whole model load
+{"timestamp": "2026-11-16T03:31:51.481+00:00", "request_id": "cfff19f71390", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115223139_cold", "content_id": "bd81ddcab902485dae05382fe3657895", "input": {"sha256_12": "c0d96e55b6cf", "chars": 438, "words": 78}, "output": {"guess": "human", "confidence": 0.255, "model_score": 0.318, "style_score": 0.192}, "duration_ms": 10689.54, "stages_ms": {"validate": 0.09, "model_signal": 10684.98, "style_signal": 1.25, "score_label": 0.01, "audit_write": 1.64}, "cold": true, "cpu_s": 14.8438, "rss_mb": 894.0}
+// after, Run 1: serve.py's warm-up record (written before /health answered)
+{"timestamp": "2026-11-16T03:53:52.910+00:00", "request_id": null, "route": "(startup)", "method": "WARMUP", "http_status": null, "outcome": "warmup", "duration_ms": 7430.32, "cpu_s": 11.6562, "rss_mb": 874.8, "detector_loaded": true}
+// after, Run 1: the first request is now an ordinary warm request
+{"timestamp": "2026-11-16T03:53:53.158+00:00", "request_id": "af5f25548c77", "route": "/submit", "method": "POST", "http_status": 200, "outcome": "ok", "creator_id": "cost20261115225344_cold", "content_id": "38ac9ed49c9f4917baaefc1add9ea4ce", "input": {"sha256_12": "c0d96e55b6cf", "chars": 438, "words": 78}, "output": {"guess": "human", "confidence": 0.255, "model_score": 0.318, "style_score": 0.192}, "duration_ms": 110.03, "stages_ms": {"validate": 0.35, "model_signal": 106.12, "style_signal": 1.08, "score_label": 0.01, "audit_write": 1.24}, "cold": false, "cpu_s": 1.625, "rss_mb": 921.1}
+```
+
+*Run log, before* (`results/capstone_before.md`, AI201_WARMUP not yet in the code):
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| 1. Warm P95 ≤ 2 s, cold ≤ 20 s (50 warm) | p95 ≤ 2000 ms and cold ≤ 20 s, every run | ✔ p95 382.21 ms, cold 10.7 s (start→first label 11.7 s) | ✔ p95 329.99 ms, cold 7.5 s (start→first label 8.6 s) | ✔ p95 325.95 ms, cold 6.5 s (start→first label 7.5 s) | **MET** |
+| 2. Every /submit request logged | 61/61, every run | ✔ 61/61 | ✔ 61/61 | ✔ 61/61 | **MET** |
+| 3. Memory ≤ 1200 MB, warm CPU ≤ 3.5 core-s, stage shares 99–101 % | all three, every run | ✔ 969.6 MB, 2.7984 core-s, 99.45% | ✔ 1141.4 MB, 2.6987 core-s, 99.4% | ✔ 1141.8 MB, 2.7231 core-s, 99.42% | **MET** |
+| 4. Bad input + burst: right codes, no 5xx, logged | 4/4 cases, no 5xx, every run | ✔ 4/4 | ✔ 4/4 | ✔ 4/4 | **MET** |
+| 5. Fresh clone sets up and serves | 3 of 3 clones | ✔ 8/8 steps | ✔ 8/8 steps | ✔ 8/8 steps | **MET** (3/3) |
+
+*Run log, after* (`python run_capstone.py --label after` and
+`python fresh_clone_check.py --label after` against `fb9aa1a`;
+`results/capstone_after.md`, `results/fresh_clone_after.md`):
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| 1. Warm P95 ≤ 2 s, cold ≤ 20 s (50 warm) | p95 ≤ 2000 ms and cold ≤ 20 s, every run | ✔ p95 397.77 ms, cold 0.1 s (start→first label 8.3 s) | ✔ p95 369.75 ms, cold 0.1 s (start→first label 9.0 s) | ✔ p95 377.69 ms, cold 0.1 s (start→first label 7.8 s) | **MET** |
+| 2. Every /submit request logged | 61/61, every run | ✔ 61/61 | ✔ 61/61 | ✔ 61/61 | **MET** |
+| 3. Memory ≤ 1200 MB, warm CPU ≤ 3.5 core-s, stage shares 99–101 % | all three, every run | ✔ 979.2 MB, 2.8025 core-s, 99.45% | ✔ 1152.2 MB, 2.7756 core-s, 99.43% | ✔ 1150.2 MB, 2.8162 core-s, 99.42% | **MET** |
+| 4. Bad input + burst: right codes, no 5xx, logged | 4/4 cases, no 5xx, every run | ✔ 4/4 | ✔ 4/4 | ✔ 4/4 | **MET** |
+| 5. Fresh clone sets up and serves | 3 of 3 clones | ✔ 8/8 steps, 318 s | ✔ 8/8 steps, 313 s | ✔ 8/8 steps, 294 s | **MET** (3/3) |
+
+*Side by side* (Runs 1 / 2 / 3):
+
+| | Before | After |
+|---|---|---|
+| **First `/submit` after start, server-side (s)** | 10.69 / 7.53 / 6.47 | **0.11 / 0.09 / 0.10** |
+| Process start → `/health` answers (s) | 1.03 / 1.04 / 1.06 | 8.17 / 8.87 / 7.69 |
+| **Process start → first label returned (s)** | 11.7 / 8.6 / 7.5 | 8.3 / 9.0 / 7.8 |
+| Warm p50 (ms) | 191 / 179 / 181 | 176 / 178 / 175 |
+| Warm p95 (ms) | 382 / 330 / 326 | 398 / 370 / 378 |
+| Warm CPU, core-s per request | 2.80 / 2.70 / 2.72 | 2.80 / 2.78 / 2.82 |
+| Highest memory after any `/submit` (MB) | 970 / 1141 / 1142 | 979 / 1152 / 1150 |
+
+*Did it help?* **Yes, for what it was aimed at. But it moved the cost rather
+than removing it, and I'm not going to claim more than that.**
+
+- **The first writer no longer waits for the model.** Their request went from
+  6.5–10.7 s to about 0.1 s, the same as everyone else's.
+- **The total from start to first label didn't shrink** (7.5–11.7 s before,
+  7.8–9.0 s after). The roughly 7 s load now happens in `serve.py` before
+  `/health` answers. That helps only when the server starts before anyone is
+  waiting, which is true for this Path B setup, where `serve.py` is started
+  ahead of time. On a host that starts the process *because* a request arrived
+  (the free-tier wake-up the brief describes), that first person would still
+  wait about 8 s, now for the service to come up instead of for their label.
+- **A side effect I'd keep:** `/health` now answers only once the service can
+  actually score text. Before, it said "up" while the first `/submit` was
+  still 7–11 s away.
+
+*What got worse, measured:*
+- **Memory: about +10 MB at peak** (1141 → 1152 MB in Runs 2 and 3), from the
+  warm-up's extra forward pass. It's still under criterion 3's 1,200 MB, but
+  the headroom went from about 58 MB to about 48 MB.
+- **Startup: about +7 s before `/health` answers**, which is the intended cost.
+- **Warm p95 is 15–50 ms higher** (326–382 → 370–398 ms) while p50 didn't
+  move (175–191 ms both times). The before runs already spread 56 ms between
+  themselves, and the warm-up doesn't touch the warm path, so I read this as
+  run-to-run noise, not a regression. With three trials I can't prove that
+  either way.
+
+*Were my targets set too low?* All five were met before *and* after, so
+honestly, partly yes:
+- **Criterion 1's warm P95 ≤ 2 s is about five times what I measured**
+  (326–398 ms), so it would only catch a large regression. I'd tighten it to
+  **P95 ≤ 500 ms**. That holds in all six runs, but only by about 100 ms, so a
+  real slowdown would show.
+- **Criterion 1's cold-start part measured the wrong thing for this
+  improvement.** It times the first request, and the warm-up drives that to
+  0.1 s by moving the load somewhere the criterion doesn't look. Measured as
+  **process start → first label ≤ 10 s**, it would have caught something:
+  **before Run 1 (11.7 s) misses it**, and all three after runs pass
+  (7.8–9.0 s). That's the version I'd use next time.
+- **Criteria 2 and 4 can't be tightened.** They're already 100%.
+- **Criterion 3's memory ceiling is already tight** (48 MB to spare). It's the
+  one closest to failing.
+- **Criterion 5** passed 6 of 6 clones. Its weak spot is that the clones share
+  the pip and Hugging Face caches, which the criterion allows on purpose.
+
+I haven't changed `criteria.md`. These are what I'd write next time, not
+revisions: the original criteria were measurable, and I met them.
 
 **What's Still Broken**
 

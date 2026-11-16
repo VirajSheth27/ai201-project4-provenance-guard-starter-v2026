@@ -1,10 +1,10 @@
 # Capstone run log — before
 
-Generated 2026-11-15 22:50 by `python run_capstone.py --label before`. Three trials, each against a freshly started `serve.py` (waitress), nothing changed between them.
+Generated 2026-11-15 23:13 by `python run_capstone.py --label before`. Three trials, each against a freshly started `serve.py` (waitress), nothing changed between them.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Warm P95 ≤ 2 s, cold ≤ 20 s (50 warm) | p95 ≤ 2000 ms and cold ≤ 20 s, every run | ✔ p95 382.21 ms, cold 10.7 s | ✔ p95 329.99 ms, cold 7.5 s | ✔ p95 325.95 ms, cold 6.5 s | **MET** |
+| 1. Warm P95 ≤ 2 s, cold ≤ 20 s (50 warm) | p95 ≤ 2000 ms and cold ≤ 20 s, every run | ✔ p95 382.21 ms, cold 10.7 s (start→first label 11.7 s) | ✔ p95 329.99 ms, cold 7.5 s (start→first label 8.6 s) | ✔ p95 325.95 ms, cold 6.5 s (start→first label 7.5 s) | **MET** |
 | 2. Every /submit request logged | 61/61, every run | ✔ 61/61 | ✔ 61/61 | ✔ 61/61 | **MET** |
 | 3. Memory ≤ 1200 MB, warm CPU ≤ 3.5 core-s, stage shares 99–101 % | all three, every run | ✔ 969.6 MB, 2.7984 core-s, 99.45% | ✔ 1141.4 MB, 2.6987 core-s, 99.4% | ✔ 1141.8 MB, 2.7231 core-s, 99.42% | **MET** |
 | 4. Bad input + burst: right codes, no 5xx, logged | 4/4 cases, no 5xx, every run | ✔ 4/4 | ✔ 4/4 | ✔ 4/4 | **MET** |
@@ -12,11 +12,11 @@ Generated 2026-11-15 22:50 by `python run_capstone.py --label before`. Three tri
 
 ## Per trial
 
-**Run 1** (20261115223139): startup 1.03 s · cold 10689.54 ms (14.8438 core-s) · warm p50 191.22 / p95 382.21 / p99 612.3 / max 612.3 ms (n=50) · warm CPU 139.9221 / 50 = 2.7984 core-s · highest RSS 969.6 MB · stage shares {'validate': 0.04, 'model_signal': 98.47, 'style_signal': 0.45, 'score_label': 0.0, 'audit_write': 0.49} = 99.45% · /submit logged 61/61
+**Run 1** (20261115223139): startup 1.03 s (no warm-up) · start→first label 11.7 s · cold 10689.54 ms (14.8438 core-s) · warm p50 191.22 / p95 382.21 / p99 612.3 / max 612.3 ms (n=50) · warm CPU 139.9221 / 50 = 2.7984 core-s · highest RSS 969.6 MB · stage shares {'validate': 0.04, 'model_signal': 98.47, 'style_signal': 0.45, 'score_label': 0.0, 'audit_write': 0.49} = 99.45% · /submit logged 61/61
 
-**Run 2** (20261115223202): startup 1.04 s · cold 7530.75 ms (10.875 core-s) · warm p50 178.8 / p95 329.99 / p99 348.41 / max 348.41 ms (n=50) · warm CPU 134.9374 / 50 = 2.6987 core-s · highest RSS 1141.4 MB · stage shares {'validate': 0.04, 'model_signal': 98.34, 'style_signal': 0.49, 'score_label': 0.01, 'audit_write': 0.52} = 99.4% · /submit logged 61/61
+**Run 2** (20261115223202): startup 1.04 s (no warm-up) · start→first label 8.6 s · cold 7530.75 ms (10.875 core-s) · warm p50 178.8 / p95 329.99 / p99 348.41 / max 348.41 ms (n=50) · warm CPU 134.9374 / 50 = 2.6987 core-s · highest RSS 1141.4 MB · stage shares {'validate': 0.04, 'model_signal': 98.34, 'style_signal': 0.49, 'score_label': 0.01, 'audit_write': 0.52} = 99.4% · /submit logged 61/61
 
-**Run 3** (20261115223221): startup 1.06 s · cold 6470.44 ms (10.7188 core-s) · warm p50 181.15 / p95 325.95 / p99 335.68 / max 335.68 ms (n=50) · warm CPU 136.1565 / 50 = 2.7231 core-s · highest RSS 1141.8 MB · stage shares {'validate': 0.04, 'model_signal': 98.16, 'style_signal': 0.49, 'score_label': 0.01, 'audit_write': 0.72} = 99.42% · /submit logged 61/61
+**Run 3** (20261115223221): startup 1.06 s (no warm-up) · start→first label 7.5 s · cold 6470.44 ms (10.7188 core-s) · warm p50 181.15 / p95 325.95 / p99 335.68 / max 335.68 ms (n=50) · warm CPU 136.1565 / 50 = 2.7231 core-s · highest RSS 1141.8 MB · stage shares {'validate': 0.04, 'model_signal': 98.16, 'style_signal': 0.49, 'score_label': 0.01, 'audit_write': 0.72} = 99.42% · /submit logged 61/61
 
 ## Real output (Run 1)
 
