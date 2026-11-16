@@ -1506,6 +1506,37 @@ So the compute is trivial. The real cost is **holding ~1.1 GB of RAM all day**
 for under 20 seconds of work, because the model has to stay loaded to be fast.
 That memory, not the CPU, is what rules out a 512 MB free host.
 
+*Updated after the test runs (Milestones 5 and 6).* The numbers above come
+from one 10-request run in Milestone 3. The capstone trials measured
+**300 warm requests**: 3 runs × 50 before the improvement, and 3 × 50 after.
+They agree, so this is the per-run number I'd quote:
+
+| Per run, measured | Before (150 warm) | After (150 warm) |
+|---|---|---|
+| Warm wall time, mean of the three run means | 190 ms | 195 ms |
+| **Warm CPU, sum of `cpu_s` ÷ requests** | **2.74 core-s** | **2.80 core-s** |
+| Once per process start | first request: 6.5–10.7 s, 10.7–14.8 core-s | warm-up: 6.8–7.5 s, 10.2–11.7 core-s |
+| Highest memory after any `/submit` | 970–1142 MB | 979–1152 MB |
+
+*A hundred people a day*, after the improvement, one submission each and one
+process start a day:
+
+```
+CPU    100 × 2.80 core-s       = 280.0 core-s
+     +   1 × 11.7 core-s       =  11.7 core-s   (warm-up, worst of 3)
+                               = 291.7 core-s a day  ≈ 4.9 CPU-minutes
+
+Wall   100 × 0.195 s           = 19.5 s of request time a day
+     +   1 × 7.5 s             =  7.5 s of startup, before anyone is served
+
+Memory ~1.15 GB resident, held for all 24 h, for under 30 s of work.
+```
+
+Ten times that (1,000 a day) is still under 50 CPU-minutes. The CPU scales
+with people; the memory doesn't, because it's the model sitting in RAM
+whether or not anyone submits. So the number that decides where this can run
+is **1.15 GB of always-on memory**, not the 4.9 CPU-minutes.
+
 **Run Log and Verdicts**
 
 *Order of work, from `git log`:* the criteria went in at `9c1a441` (22:27,
@@ -1766,8 +1797,78 @@ revisions: the original criteria were measurable, and I met them.
 
 **What's Still Broken**
 
-*(Milestone 7)*
+No criterion is MISSED, before or after the improvement. So, as the brief asks
+when all five are met, this is about what my targets let through and what I'd
+do next. The details of each are in The Improvement.
+
+1. **Criterion 1's warm target was set too low.** P95 ≤ 2 s against a
+   measured 326–398 ms means the service could get five times slower and still
+   pass. *What I'd do:* tighten it to **P95 ≤ 500 ms**. That holds in all six
+   runs with about 100 ms to spare, so a real regression would show.
+   *Why I stopped:* lowering a target after meeting it isn't a revision the
+   brief allows, and the original was measurable. So it goes here, for next
+   time.
+2. **Criterion 1's cold-start part measured the wrong place.** It times the
+   first request, and my improvement drove that to 0.1 s by moving the model
+   load into startup, where the criterion doesn't look. Process start → first
+   label stayed at 7.8–9.0 s. *What I'd do:* measure **process start → first
+   label ≤ 10 s**. Before Run 1 (11.7 s) would have missed it. *Why I
+   stopped:* same reason as above. I'd also want more than three cold starts,
+   because I've now seen 6.5 s and 18.6 s from the same code. The slow one was
+   the first start after a break, when the 551 MB of weights weren't in the
+   OS file cache, and none of my trials reproduced that.
+3. **Memory is the criterion closest to failing.** The highest reading was
+   1152 MB against 1,200, and the warm-up took 10 MB of the headroom. The same
+   50 texts peaked anywhere from 970 MB to 1152 MB between runs, so the peak
+   depends on how the process happens to allocate, not on which text arrives.
+   *What I'd do:* sample memory during each request, not only after it, so a
+   brief spike can't fall between readings. Then check whether
+   `torch.set_num_threads` brings the peak down. *Why I stopped:* the
+   one-improvement rule. Any memory fix big enough to matter (a smaller model,
+   quantising GPT-2) changes the detector, which I put out of scope.
+4. **The rate limiter and the request log only work for one process.**
+   `memory://` limits and the in-process lock on `requests.jsonl` are right
+   for one `serve.py` with 4 threads. They'd be wrong for two copies behind a
+   load balancer. *Why I stopped:* this is Path B, one process, and adding
+   shared storage is a different project.
+5. **`cpu_s` counts the whole process.** It's accurate only because the
+   harness sends one request at a time. The 0.16–0.22 core-s on some 429
+   records is torch's threads finishing the request before. Under concurrent
+   load the per-request figure would be meaningless. *What I'd do:* sample
+   CPU at the process level over a time window instead of per request.
+6. **The fresh-clone check doesn't test the model download.** All six clones
+   shared the user-wide Hugging Face cache, as criterion 5 allows. A machine
+   that has never run this downloads 551 MB once, and that path is untested.
+
+*If this were real and I had another unit:* the first thing I'd do is measure
+process start → first label over at least ten cold starts, including ones
+where the 551 MB of weights aren't already in the OS file cache. My
+improvement's whole claim depends on where that load time goes, and I've seen
+the same code take 6.5 s and 18.6 s without knowing which one a real restart
+gets.
 
 **How I Used AI**
 
-*(Milestone 7)*
+
+
+**Moment 1: reviewing my criteria, not writing them**
+
+- *What I asked:* I wrote five criteria, then asked Claude to run the brief's
+  three self-check questions on each (how would you test it from the sentence
+  alone, would two people score it the same, what would make it fail) **without
+  rewriting them**.
+
+**Moment 2: a harness bug that reported my system as failing**
+
+- *What I asked:* run criterion 5, three fresh clones following RUNNING.md.
+- *What came back:* "0/3 clones passed", although every clone had passed every
+  step. Claude traced it to its own checker: `fresh_clone_check.py` required 9
+  steps and there are 8.
+- *What I changed:* I didn't let it re-run the clones until they passed, and I
+  didn't delete the bad result. The pass rule was fixed in one place
+  (`judge()`), the **saved** step results were re-judged with `--rescore`, and
+  the first scoring is kept in `results/fresh_clone_before_as_first_scored.json`
+  and explained in Run Log and Verdicts. What I took from it: when the tool
+  that measures is new, a surprising result is as likely to be the tool as the
+  system. I only knew which it was because every step's raw outcome had been
+  saved, not just a pass or fail.
